@@ -1,0 +1,60 @@
+[
+  {
+    "parentType": "agent",
+    "slug": "outfit",
+    "name": "Outfit",
+    "fieldType": "entity_ref",
+    "sortOrder": 10,
+    "description": "Active outfit entity overriding the base avatar",
+    "constraints": "{\"target_type\": \"outfit\"}",
+    "icon": "ph-thin ph-t-shirt"
+  },
+  {
+    "parentType": "outfit",
+    "slug": "agent",
+    "name": "Agent",
+    "fieldType": "entity_ref",
+    "sortOrder": 0,
+    "description": "Agent this outfit belongs to",
+    "constraints": "{\"target_type\": \"agent\"}",
+    "icon": "ph-thin ph-robot"
+  },
+  {
+    "parentType": "outfit",
+    "slug": "asset",
+    "name": "Asset",
+    "fieldType": "media",
+    "sortOrder": 1,
+    "description": "Generated outfit image asset",
+    "icon": "ph-thin ph-image",
+    "showOnCard": true
+  },
+  {
+    "parentType": "outfit",
+    "slug": "prompt",
+    "name": "Prompt",
+    "fieldType": "markdown",
+    "sortOrder": 2,
+    "description": "Image generation prompt used to create this outfit",
+    "icon": "ph-thin ph-chat-text"
+  },
+  {
+    "parentType": "outfit",
+    "slug": "reasoning",
+    "name": "Reasoning",
+    "fieldType": "string",
+    "sortOrder": 3,
+    "description": "Why this outfit was chosen",
+    "icon": "ph-thin ph-chat-circle-dots"
+  },
+  {
+    "parentType": "outfit",
+    "slug": "nsfw",
+    "name": "NSFW",
+    "fieldType": "boolean",
+    "sortOrder": 4,
+    "defaultValue": "false",
+    "description": "Whether this outfit is hidden behind the NSFW filter",
+    "icon": "ph-thin ph-eye-slash"
+  }
+]

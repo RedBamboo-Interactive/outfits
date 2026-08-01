@@ -1,0 +1,11 @@
+[
+  {
+    "typeSlug": "capability",
+    "slug": "outfits",
+    "name": "Outfits",
+    "data": {
+      "category": "agent",
+      "description": "Outfit history and active avatar outfit selection for Nova agents"
+    }
+  }
+]

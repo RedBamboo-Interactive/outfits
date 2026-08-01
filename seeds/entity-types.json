@@ -1,0 +1,13 @@
+[
+  {
+    "typeSlug": "entity-type",
+    "slug": "outfit",
+    "name": "Outfit",
+    "data": {
+      "icon": "ph-bold ph-t-shirt",
+      "color": "rose",
+      "versioning": false,
+      "description": "Agent avatar outfit with asset image, generation prompt, and selection history"
+    }
+  }
+]

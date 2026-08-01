@@ -1,0 +1,25 @@
+{
+  "id": "outfits",
+  "name": "Outfits",
+  "version": "0.1.0",
+  "kernelApi": "^0.1.0",
+  "description": "Optional outfit history and avatar selection for Nova agents.",
+  "icon": "ph-t-shirt",
+  "color": "nova",
+  "requires": ["entities", "assets", "discussions"],
+  "backend": { "assembly": "Leaf.Plugins.Outfits" },
+  "frontend": {
+    "package": "@redbamboo/plugin-outfits",
+    "pwa": false,
+    "extensions": [
+      {
+        "id": "avatar-action",
+        "target": "nova",
+        "slot": "chat-avatar-overlay",
+        "order": 10,
+        "description": "Opens outfit history and selection from Nova's chat avatar"
+      }
+    ]
+  },
+  "permissions": []
+}

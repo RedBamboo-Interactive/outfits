@@ -1,0 +1,13 @@
+[
+  {
+    "typeSlug": "event-type",
+    "slug": "event-type-outfit",
+    "name": "Outfit",
+    "data": {
+      "key": "outfit",
+      "icon": "ph-bold ph-t-shirt",
+      "color": "nova",
+      "description": "Avatar outfit changes"
+    }
+  }
+]
