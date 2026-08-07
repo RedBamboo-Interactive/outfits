@@ -4,7 +4,7 @@
     "slug": "outfit",
     "name": "Outfit",
     "fieldType": "entity_ref",
-    "sortOrder": 10,
+    "sortOrder": 11,
     "description": "Active outfit entity overriding the base avatar",
     "constraints": "{\"target_type\": \"outfit\"}",
     "icon": "ph-thin ph-t-shirt"
