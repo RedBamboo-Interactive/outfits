@@ -1,0 +1,342 @@
+name: Build Outfits release candidate
+
+on:
+  workflow_call:
+    inputs:
+      central_release_tag:
+        description: Future RedBamboo-Interactive/redleaf Release tag used to derive the final artifact URL.
+        required: true
+        type: string
+    secrets:
+      CROSS_REPO_TOKEN:
+        description: Optional token that can read the pinned RedBamboo and RedLeaf commits.
+        required: false
+  workflow_dispatch:
+    inputs:
+      central_release_tag:
+        description: Future RedBamboo-Interactive/redleaf Release tag used to derive the final artifact URL.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Build one channel-neutral unsigned release input
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.pins.outputs.version }}
+
+    steps:
+      - name: Checkout exact Outfits source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: RedBamboo-Interactive/outfits
+          ref: ${{ github.workflow_sha }}
+          path: outfits
+          persist-credentials: false
+
+      - name: Read and require immutable producer pins
+        id: pins
+        working-directory: outfits
+        shell: pwsh
+        run: |
+          $input = Get-Content -LiteralPath 'release/producer-input.v1.json' -Raw | ConvertFrom-Json
+          $manifest = Get-Content -LiteralPath 'plugin.json' -Raw | ConvertFrom-Json
+          $redleaf = [string]$input.redleaf.commit
+          $redbamboo = [string]$input.redbamboo.commit
+          $version = [string]$manifest.version
+          if ($redleaf -notmatch '^[a-f0-9]{40}$') { throw 'RedLeaf release-tool commit pin is unresolved; replace the single placeholder in release/producer-input.v1.json.' }
+          if ($redbamboo -notmatch '^[a-f0-9]{40}$') { throw 'RedBamboo commit must be one full immutable SHA.' }
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') { throw 'plugin.json version must be exact SemVer.' }
+          "redleaf=$redleaf" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "redbamboo=$redbamboo" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Checkout exact RedBamboo inputs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: RedBamboo-Interactive/redbamboo-packages
+          ref: ${{ steps.pins.outputs.redbamboo }}
+          path: redbamboo-packages
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          persist-credentials: false
+
+      - name: Checkout exact RedLeaf release tool and Leaf.Sdk
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: RedBamboo-Interactive/redleaf
+          ref: ${{ steps.pins.outputs.redleaf }}
+          path: redleaf
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          persist-credentials: false
+
+      - name: Set up exact Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.1
+
+      - name: Set up exact .NET SDK
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 9.0.303
+
+      - name: Enable packageManager-pinned pnpm
+        working-directory: outfits/web
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.9 --activate
+          if ((corepack pnpm --version).Trim() -cne '11.0.9') { throw 'Corepack did not activate pnpm 11.0.9.' }
+
+      - name: Verify exact checkouts
+        shell: pwsh
+        run: |
+          if ((git -C outfits rev-parse HEAD).Trim() -cne '${{ github.workflow_sha }}') { throw 'Outfits checkout does not match the called workflow commit.' }
+          if ((git -C redbamboo-packages rev-parse HEAD).Trim() -cne '${{ steps.pins.outputs.redbamboo }}') { throw 'RedBamboo checkout does not match its producer pin.' }
+          if ((git -C redleaf rev-parse HEAD).Trim() -cne '${{ steps.pins.outputs.redleaf }}') { throw 'RedLeaf checkout does not match its producer pin.' }
+
+      - name: Restore and build pinned RedLeaf release tool
+        working-directory: outfits
+        shell: pwsh
+        run: |
+          dotnet restore ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --locked-mode --nologo
+          dotnet build ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --configuration Release --no-restore --nologo
+
+      - name: Restore, build, and test the real backend
+        working-directory: outfits
+        shell: pwsh
+        run: |
+          dotnet restore src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj --locked-mode --nologo
+          dotnet build src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj --configuration Release --no-restore --nologo
+          dotnet restore tests/Leaf.Plugins.Outfits.Tests/Leaf.Plugins.Outfits.Tests.csproj --locked-mode --nologo
+          dotnet test tests/Leaf.Plugins.Outfits.Tests/Leaf.Plugins.Outfits.Tests.csproj --configuration Release --no-restore --nologo
+
+      - name: Restore and build exact shared packages
+        working-directory: redbamboo-packages
+        shell: pwsh
+        run: |
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @redbamboo/ui --filter @redbamboo/utility build
+
+      - name: Frozen frontend restore, typecheck, and build
+        working-directory: outfits/web
+        shell: pwsh
+        run: |
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm run typecheck
+          corepack pnpm run build:pkg
+          if (-not (Test-Path -LiteralPath 'dist/plugin.js')) { throw 'build:pkg did not produce web/dist/plugin.js.' }
+
+      - name: Generate exact channel-neutral metadata
+        working-directory: outfits
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          $sourceDateEpoch = (git show -s --format=%ct HEAD).Trim()
+          node scripts/release/metadata.mjs generate `
+            --input release/producer-input.v1.json `
+            --repository . `
+            --redbamboo ../redbamboo-packages `
+            --redleaf ../redleaf `
+            --source-commit "${{ github.workflow_sha }}" `
+            --source-date-epoch $sourceDateEpoch `
+            --output artifacts/outfits-release-metadata.v1.json
+
+      - name: Invoke RedLeaf deterministic release packer
+        shell: pwsh
+        run: |
+          & ./redleaf/scripts/build-leafpkg-release.ps1 `
+            -PluginDir ./outfits `
+            -Metadata ./outfits/artifacts/outfits-release-metadata.v1.json `
+            -OutputDir ./outfits/artifacts `
+            -BackendProject ./outfits/src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj `
+            -FrontendDir ./outfits/web `
+            -Lock @(
+              'backend-nuget-lock=./outfits/src/Leaf.Plugins.Outfits/packages.lock.json',
+              'redbamboo-pnpm-lock=./redbamboo-packages/pnpm-lock.yaml',
+              'tests-nuget-lock=./outfits/tests/Leaf.Plugins.Outfits.Tests/packages.lock.json',
+              'web-pnpm-lock=./outfits/web/pnpm-lock.yaml'
+            ) `
+            -BuildInput @(
+              'leaf-sdk=./redleaf',
+              'redbamboo-ui=./redbamboo-packages',
+              'redbamboo-utility=./redbamboo-packages'
+            )
+
+      - name: Validate actual artifact and lock facts
+        working-directory: outfits
+        shell: pwsh
+        run: |
+          $sourceDateEpoch = (git show -s --format=%ct HEAD).Trim()
+          $version = '${{ steps.pins.outputs.version }}'
+          node scripts/release/metadata.mjs validate `
+            --input release/producer-input.v1.json `
+            --repository . `
+            --redbamboo ../redbamboo-packages `
+            --redleaf ../redleaf `
+            --source-commit "${{ github.workflow_sha }}" `
+            --source-date-epoch $sourceDateEpoch `
+            --metadata artifacts/outfits-release-metadata.v1.json `
+            --descriptor "artifacts/outfits-$version.component-input.v1.json" `
+            --artifact "artifacts/outfits-$version.leafpkg"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $package = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path "artifacts/outfits-$version.leafpkg").Path)
+          try {
+            foreach ($entry in $package.Entries) {
+              $path = $entry.FullName.Replace('\', '/')
+              if ($path -cne 'plugin.json' -and
+                  $path -cne 'release/extension-build-evidence.v1.json' -and
+                  -not $path.StartsWith('backend/', [StringComparison]::Ordinal) -and
+                  -not $path.StartsWith('web/dist/', [StringComparison]::Ordinal) -and
+                  -not $path.StartsWith('seeds/', [StringComparison]::Ordinal)) {
+                throw "Release package contains a path outside immutable code/assets/manifests: '$path'."
+              }
+              if ($path -imatch '(^|/)(portraits?|outfits?|renders?|daily[-_.]?(choice|history)|history|mood|prompts?|outputs?|uploads?|references?|images?|cache|caches|log|logs|database|databases|state|snapshots?)(/|$)' -or
+                  $path -imatch '(^|/)(\.env(?:\..*)?|appsettings(?:\..*)?\.json|.*(secret|credential|token|auth(orization)?[-_.]?state|operator[-_.]?config|user[-_.]?config|local[-_.]?config|working[-_.]?state).*|.*\.(log|db|sqlite3?|cache))$') {
+                throw "Release package contains a private-state-shaped path: '$path'."
+              }
+            }
+          } finally {
+            $package.Dispose()
+          }
+
+      - name: Invoke one RedLeaf candidate and signature-input path
+        working-directory: outfits
+        shell: pwsh
+        env:
+          CENTRAL_RELEASE_TAG: ${{ inputs.central_release_tag }}
+        run: |
+          $tool = '../redleaf/tools/RedLeaf.ReleaseTool/bin/Release/net9.0/RedLeaf.ReleaseTool.dll'
+          $version = '${{ steps.pins.outputs.version }}'
+          $tag = [string]$env:CENTRAL_RELEASE_TAG
+          if ($tag -notcmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $tag.Contains('..')) {
+            throw 'central_release_tag must be one non-empty URL-safe RedBamboo-Interactive/redleaf Release tag segment.'
+          }
+          $artifactName = "outfits-$version.leafpkg"
+          if ($artifactName -notcmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$' -or $artifactName.Contains('..')) {
+            throw 'Derived central artifact filename is not one safe filename.'
+          }
+          $artifactUrl = "https://github.com/RedBamboo-Interactive/redleaf/releases/download/$tag/$artifactName"
+          dotnet $tool candidate ingest-extension `
+            --descriptor "artifacts/outfits-$version.component-input.v1.json" `
+            --artifact "artifacts/outfits-$version.leafpkg" `
+            --artifact-url "$artifactUrl" `
+            --output artifacts/outfits-candidate.unsigned.json `
+            --signature-input artifacts/outfits-signature-input.json
+          if ($LASTEXITCODE -ne 0) { throw 'RedLeaf channel-neutral candidate ingestion failed.' }
+          $candidate = Get-Content -LiteralPath artifacts/outfits-candidate.unsigned.json -Raw | ConvertFrom-Json
+          if ([string]$candidate.artifact.url -cne $artifactUrl) { throw 'Candidate artifact URL drifted from the derived central URL.' }
+
+      - name: Upload immutable unsigned handoff only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: outfits-${{ steps.pins.outputs.version }}-${{ github.workflow_sha }}-unsigned-release-inputs
+          path: |
+            outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg
+            outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.component-input.v1.json
+            outfits/artifacts/outfits-release-metadata.v1.json
+            outfits/artifacts/outfits-candidate.unsigned.json
+            outfits/artifacts/outfits-signature-input.json
+          if-no-files-found: error
+          retention-days: 14
+
+  bridge:
+    name: Append unsigned Outfits bytes to rolling prerelease
+    needs: candidate
+    concurrency:
+      group: outfits-unsigned-candidate-bridge
+      cancel-in-progress: false
+    runs-on: windows-2025
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download exact unsigned candidate inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: outfits-${{ needs.candidate.outputs.version }}-${{ github.workflow_sha }}-unsigned-release-inputs
+          path: bridge-input
+
+      - name: Prepare candidate-ID-derived bridge assets
+        shell: pwsh
+        run: |
+          $descriptor = @(Get-ChildItem bridge-input -Recurse -File -Filter outfits-candidate.unsigned.json)
+          if ($descriptor.Count -ne 1) { throw 'Expected exactly one unsigned Outfits candidate descriptor.' }
+          $candidate = Get-Content -LiteralPath $descriptor[0].FullName -Raw | ConvertFrom-Json
+          if ($candidate.status -cne 'unsigned' -or $null -ne $candidate.artifact.signature) {
+            throw 'The acquisition bridge accepts only an unsigned candidate.'
+          }
+          $candidateId = [string]$candidate.candidateId
+          if ($candidateId -notcmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$') { throw 'Candidate ID is not a safe asset-name token.' }
+          $matchingArtifacts = @(Get-ChildItem bridge-input -Recurse -File | Where-Object {
+            $_.Length -eq [long]$candidate.artifact.sizeBytes -and
+            (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ceq [string]$candidate.artifact.sha256
+          })
+          if ($matchingArtifacts.Count -ne 1 -or $matchingArtifacts[0].Extension -cne '.leafpkg') {
+            throw 'Expected exactly one .leafpkg matching the unsigned candidate descriptor.'
+          }
+          New-Item -ItemType Directory -Path bridge-assets -Force | Out-Null
+          Copy-Item -LiteralPath $descriptor[0].FullName -Destination "bridge-assets/${candidateId}.candidate.json"
+          Copy-Item -LiteralPath $matchingArtifacts[0].FullName -Destination "bridge-assets/${candidateId}.leafpkg"
+
+      - name: Append without replacement and re-verify every bridge asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: RedBamboo-Interactive/outfits
+        run: |
+          $visibility = & gh api "repos/$env:GH_REPO" --jq .visibility
+          if ($LASTEXITCODE -ne 0 -or $visibility -cne 'public') {
+            throw 'Rolling candidate publication requires the producer repository to already be public.'
+          }
+          $tag = 'outfits-unsigned-candidates'
+          $releaseJson = & gh release view $tag --json isDraft,isPrerelease,assets 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --prerelease --latest=false --target '${{ github.workflow_sha }}' `
+              --title 'Rolling unsigned Outfits candidates' `
+              --notes 'Public unsigned acquisition inputs for exact central RedLeaf release plans. Trust comes only from central signed metadata.'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create the rolling Outfits candidate prerelease.' }
+            $releaseJson = gh release view $tag --json isDraft,isPrerelease,assets
+          }
+          $release = $releaseJson | ConvertFrom-Json
+          if ($release.isDraft -or -not $release.isPrerelease) { throw 'Candidate bridge tag must remain a public prerelease.' }
+          $required = @(Get-ChildItem bridge-assets -File | Sort-Object Name)
+          if ($required.Count -ne 2) { throw 'The bridge requires exactly the unsigned descriptor and .leafpkg.' }
+          $existingNames = @($release.assets | ForEach-Object { $_.name })
+          foreach ($file in $required) {
+            if ($existingNames -contains $file.Name) {
+              $checkDirectory = "bridge-collision-check/$($file.BaseName)"
+              New-Item -ItemType Directory -Path $checkDirectory -Force | Out-Null
+              gh release download $tag --pattern $file.Name --dir $checkDirectory
+              if ($LASTEXITCODE -ne 0) { throw "Could not download existing bridge asset '$($file.Name)'." }
+              $downloaded = Join-Path $checkDirectory $file.Name
+              if ((Get-FileHash -LiteralPath $downloaded -Algorithm SHA256).Hash -cne
+                  (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
+                throw "Immutable bridge asset collision: '$($file.Name)'."
+              }
+            } else {
+              gh release upload $tag $file.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Could not append bridge asset '$($file.Name)'." }
+            }
+          }
+          $release = gh release view $tag --json isDraft,isPrerelease,assets | ConvertFrom-Json
+          if ($release.isDraft -or -not $release.isPrerelease) { throw 'Candidate bridge tag changed state during append.' }
+          foreach ($file in $required) {
+            if (@($release.assets | Where-Object { $_.name -ceq $file.Name }).Count -ne 1) {
+              throw "Required bridge asset is missing or ambiguous: '$($file.Name)'."
+            }
+            $verifyDirectory = "bridge-required-verification/$($file.BaseName)"
+            New-Item -ItemType Directory -Path $verifyDirectory -Force | Out-Null
+            gh release download $tag --pattern $file.Name --dir $verifyDirectory
+            if ($LASTEXITCODE -ne 0) { throw "Could not re-download required bridge asset '$($file.Name)'." }
+            $downloaded = Join-Path $verifyDirectory $file.Name
+            if ((Get-FileHash -LiteralPath $downloaded -Algorithm SHA256).Hash -cne
+                (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
+              throw "Re-downloaded bridge asset failed exact SHA-256 verification: '$($file.Name)'."
+            }
+          }

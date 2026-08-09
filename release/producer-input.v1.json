@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "inputType": "outfits-extension-release-producer-input",
+  "identity": {
+    "id": "outfits",
+    "version": "0.1.0"
+  },
+  "classification": "optional",
+  "compatibility": {
+    "kernelApi": "^0.1.0"
+  },
+  "toolchain": {
+    "node": "22.23.1",
+    "pnpm": "11.0.9",
+    "dotnetSdk": "9.0.303",
+    "msbuild": "17.14.13.31314"
+  },
+  "redleaf": {
+    "repository": "RedBamboo-Interactive/redleaf",
+    "commit": "4bf0894014b392e60cf0b5c6ca85920428ba7516",
+    "leafSdkPath": "src/Leaf.Sdk"
+  },
+  "redbamboo": {
+    "repository": "RedBamboo-Interactive/redbamboo-packages",
+    "commit": "82f34cd021566fd3193263030eba0e07404a8d20",
+    "lockPath": "pnpm-lock.yaml",
+    "inputs": [
+      {
+        "id": "redbamboo-ui",
+        "name": "@redbamboo/ui",
+        "sourcePath": "packages/ui"
+      },
+      {
+        "id": "redbamboo-utility",
+        "name": "@redbamboo/utility",
+        "sourcePath": "packages/utility"
+      }
+    ]
+  },
+  "build": {
+    "backendProject": "src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj",
+    "frontendDirectory": "web"
+  },
+  "locks": [
+    {
+      "id": "backend-nuget-lock",
+      "ecosystem": "nuget",
+      "path": "src/Leaf.Plugins.Outfits/packages.lock.json"
+    },
+    {
+      "id": "redbamboo-pnpm-lock",
+      "ecosystem": "npm",
+      "path": "redbamboo-packages/pnpm-lock.yaml"
+    },
+    {
+      "id": "tests-nuget-lock",
+      "ecosystem": "nuget",
+      "path": "tests/Leaf.Plugins.Outfits.Tests/packages.lock.json"
+    },
+    {
+      "id": "web-pnpm-lock",
+      "ecosystem": "npm",
+      "path": "web/pnpm-lock.yaml"
+    }
+  ],
+  "targetPlatform": {
+    "operatingSystem": "windows",
+    "architecture": "x64"
+  },
+  "dependencies": [],
+  "runtimeRequirements": []
+}

@@ -26,9 +26,16 @@ build-leafpkg.ps1               produce dist/outfits-<version>.leafpkg
 
 ```powershell
 cd web
-pnpm install
+corepack pnpm install --frozen-lockfile
 cd ..
-dotnet build
+dotnet restore src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj --locked-mode
+dotnet build src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj --no-restore
+dotnet restore tests/Leaf.Plugins.Outfits.Tests/Leaf.Plugins.Outfits.Tests.csproj --locked-mode
+dotnet test tests/Leaf.Plugins.Outfits.Tests --no-restore
+cd web
+corepack pnpm run typecheck
+corepack pnpm run test:release
+cd ..
 ./build-leafpkg.ps1
 ```
 
@@ -56,9 +63,11 @@ The automation entity, schedule, history, and all outfit entities stay intact.
 
 ## Publish
 
-Run `./build-leafpkg.ps1`, attach the `.leafpkg` to a GitHub Release, then submit
-the release URL and SHA-256 to a registry index. Users install it from
-`/extensions` or by URL with SHA-256 verification.
+The developer packer remains `./build-leafpkg.ps1`. Release CI builds one
+channel-neutral `.leafpkg` and hands its verified unsigned candidate to the
+suite publication flow; it does not sign, publish, or choose a channel here.
+The release producer pins both RedLeaf's ReleaseTool and the `Leaf.Sdk` source
+to audited commit `4bf0894014b392e60cf0b5c6ca85920428ba7516`.
 
 ## Rules that will save you a debugging afternoon
 
