@@ -107,21 +107,19 @@ test("workflow pins actions, checks the immutable workflow revision, and invokes
   assert.ok(packer > toolBuild && candidateDll > toolBuild)
 })
 
-test("producer identity and central artifact URL are canonical and derived", () => {
+test("producer identity and producer artifact URL are canonical and derived", () => {
   const workflow = readText(".github/workflows/release-candidate.yml")
   const surface = [workflow, readText("release/producer-input.v1.json"), readText("scripts/release/metadata.mjs"), readText("web/package.json")].join("\n")
   for (const repository of ["RedBamboo-Interactive/outfits", "RedBamboo-Interactive/redleaf", "RedBamboo-Interactive/redbamboo-packages"]) assert.match(surface, new RegExp(repository.replace("/", "\\/")))
   assert.equal(producer.toolchain.node, "22.23.1")
   assert.equal(packageJson.engines.node, "22.23.1")
   assert.match(workflow, /node-version: 22\.23\.1/)
-  assert.equal((workflow.match(/central_release_tag:\n\s+description: Future RedBamboo-Interactive\/redleaf Release tag used to derive the final artifact URL\.\n\s+required: true\n\s+type: string/g) ?? []).length, 2)
+  assert.doesNotMatch(workflow, /central_release_tag|CENTRAL_RELEASE_TAG/)
   assert.doesNotMatch(workflow, /artifact_url|ARTIFACT_URL|inputs\.artifact_url/)
-  assert.match(workflow, /\$tag -notcmatch '\^\[A-Za-z0-9\]\[A-Za-z0-9\._-\]\{0,127\}\$'/)
   assert.match(workflow, /\$artifactName = "outfits-\$version\.leafpkg"/)
-  assert.match(workflow, /Derived central artifact filename is not one safe filename/)
-  assert.match(workflow, /\$artifactUrl = "https:\/\/github\.com\/RedBamboo-Interactive\/redleaf\/releases\/download\/\$tag\/\$artifactName"/)
+  assert.match(workflow, /\$artifactUrl = "https:\/\/github\.com\/RedBamboo-Interactive\/outfits\/releases\/download\/outfits-unsigned-candidates\/\$artifactName"/)
   assert.match(workflow, /--artifact-url "\$artifactUrl"/)
-  assert.match(workflow, /Candidate artifact URL drifted from the derived central URL/)
+  assert.match(workflow, /Candidate artifact URL drifted from the canonical producer URL/)
 })
 
 test("rolling unsigned acquisition bridge is serialized, append-only, and exact", () => {
@@ -140,9 +138,8 @@ test("rolling unsigned acquisition bridge is serialized, append-only, and exact"
   assert.match(bridge, /-not \$release\.isPrerelease/)
   assert.match(bridge, /\$candidateId -notcmatch '\^\[A-Za-z0-9\]\[A-Za-z0-9\._-\]\{0,199\}\$'/)
   assert.match(bridge, /bridge-assets\/\$\{candidateId\}\.candidate\.json/)
-  assert.match(bridge, /bridge-assets\/\$\{candidateId\}\.leafpkg/)
-  assert.match(bridge, /gh api "repos\/\$env:GH_REPO" --jq \.visibility/)
-  assert.match(bridge, /\$visibility -cne 'public'/)
+  assert.match(bridge, /bridge-assets\/\$artifactName/)
+  assert.doesNotMatch(bridge, /visibility|already be public|public prerelease/i)
   assert.match(bridge, /\$existingNames -contains \$file\.Name/)
   assert.match(bridge, /Immutable bridge asset collision/)
   assert.match(bridge, /gh release upload \$tag \$file\.FullName/)

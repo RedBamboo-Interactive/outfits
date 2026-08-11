@@ -3,20 +3,12 @@ name: Build Outfits release candidate
 on:
   workflow_call:
     inputs:
-      central_release_tag:
-        description: Future RedBamboo-Interactive/redleaf Release tag used to derive the final artifact URL.
-        required: true
-        type: string
     secrets:
       CROSS_REPO_TOKEN:
         description: Optional token that can read the pinned RedBamboo and RedLeaf commits.
         required: false
   workflow_dispatch:
     inputs:
-      central_release_tag:
-        description: Future RedBamboo-Interactive/redleaf Release tag used to derive the final artifact URL.
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -207,19 +199,14 @@ jobs:
         working-directory: outfits
         shell: pwsh
         env:
-          CENTRAL_RELEASE_TAG: ${{ inputs.central_release_tag }}
         run: |
           $tool = '../redleaf/tools/RedLeaf.ReleaseTool/bin/Release/net9.0/RedLeaf.ReleaseTool.dll'
           $version = '${{ steps.pins.outputs.version }}'
-          $tag = [string]$env:CENTRAL_RELEASE_TAG
-          if ($tag -notcmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $tag.Contains('..')) {
-            throw 'central_release_tag must be one non-empty URL-safe RedBamboo-Interactive/redleaf Release tag segment.'
-          }
           $artifactName = "outfits-$version.leafpkg"
           if ($artifactName -notcmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$' -or $artifactName.Contains('..')) {
-            throw 'Derived central artifact filename is not one safe filename.'
+            throw 'Derived producer artifact filename is not one safe filename.'
           }
-          $artifactUrl = "https://github.com/RedBamboo-Interactive/redleaf/releases/download/$tag/$artifactName"
+          $artifactUrl = "https://github.com/RedBamboo-Interactive/outfits/releases/download/outfits-unsigned-candidates/$artifactName"
           dotnet $tool candidate ingest-extension `
             --descriptor "artifacts/outfits-$version.component-input.v1.json" `
             --artifact "artifacts/outfits-$version.leafpkg" `
@@ -228,7 +215,7 @@ jobs:
             --signature-input artifacts/outfits-signature-input.json
           if ($LASTEXITCODE -ne 0) { throw 'RedLeaf channel-neutral candidate ingestion failed.' }
           $candidate = Get-Content -LiteralPath artifacts/outfits-candidate.unsigned.json -Raw | ConvertFrom-Json
-          if ([string]$candidate.artifact.url -cne $artifactUrl) { throw 'Candidate artifact URL drifted from the derived central URL.' }
+          if ([string]$candidate.artifact.url -cne $artifactUrl) { throw 'Candidate artifact URL drifted from the canonical producer URL.' }
 
       - name: Upload immutable unsigned handoff only
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -282,7 +269,16 @@ jobs:
           }
           New-Item -ItemType Directory -Path bridge-assets -Force | Out-Null
           Copy-Item -LiteralPath $descriptor[0].FullName -Destination "bridge-assets/${candidateId}.candidate.json"
-          Copy-Item -LiteralPath $matchingArtifacts[0].FullName -Destination "bridge-assets/${candidateId}.leafpkg"
+          $artifactUrl = [Uri][string]$candidate.artifact.url
+          $expectedBase = "https://github.com/RedBamboo-Interactive/outfits/releases/download/outfits-unsigned-candidates/"
+          if (-not $artifactUrl.AbsoluteUri.StartsWith($expectedBase, [StringComparison]::Ordinal)) {
+            throw 'Candidate artifact URL is outside the canonical producer prerelease.'
+          }
+          $artifactName = [IO.Path]::GetFileName($artifactUrl.AbsolutePath)
+          if ($artifactName -notcmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$') {
+            throw 'Candidate producer artifact name is unsafe.'
+          }
+          Copy-Item -LiteralPath $matchingArtifacts[0].FullName -Destination "bridge-assets/$artifactName"
 
       - name: Append without replacement and re-verify every bridge asset
         shell: pwsh
@@ -290,21 +286,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: RedBamboo-Interactive/outfits
         run: |
-          $visibility = & gh api "repos/$env:GH_REPO" --jq .visibility
-          if ($LASTEXITCODE -ne 0 -or $visibility -cne 'public') {
-            throw 'Rolling candidate publication requires the producer repository to already be public.'
-          }
           $tag = 'outfits-unsigned-candidates'
           $releaseJson = & gh release view $tag --json isDraft,isPrerelease,assets 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag --prerelease --latest=false --target '${{ github.workflow_sha }}' `
               --title 'Rolling unsigned Outfits candidates' `
-              --notes 'Public unsigned acquisition inputs for exact central RedLeaf release plans. Trust comes only from central signed metadata.'
+              --notes 'Unsigned producer inputs for exact central component publication. Trust comes only from central signed metadata.'
             if ($LASTEXITCODE -ne 0) { throw 'Could not create the rolling Outfits candidate prerelease.' }
             $releaseJson = gh release view $tag --json isDraft,isPrerelease,assets
           }
           $release = $releaseJson | ConvertFrom-Json
-          if ($release.isDraft -or -not $release.isPrerelease) { throw 'Candidate bridge tag must remain a public prerelease.' }
+          if ($release.isDraft -or -not $release.isPrerelease) { throw 'Candidate bridge tag must remain a prerelease.' }
           $required = @(Get-ChildItem bridge-assets -File | Sort-Object Name)
           if ($required.Count -ne 2) { throw 'The bridge requires exactly the unsigned descriptor and .leafpkg.' }
           $existingNames = @($release.assets | ForEach-Object { $_.name })
