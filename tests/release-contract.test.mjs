@@ -11,8 +11,24 @@ const readJson = (path) => JSON.parse(readText(path))
 const manifest = readJson("plugin.json")
 const packageJson = readJson("web/package.json")
 const producer = readJson("release/producer-input.v1.json")
+const dotnetSdk = readJson("global.json")
 const centralRedLeafCommit = "4bf0894014b392e60cf0b5c6ca85920428ba7516"
 const validProducer = () => structuredClone(producer)
+
+test("repository SDK selection is exact and the packer runs inside the component checkout", () => {
+  assert.deepEqual(dotnetSdk, {
+    sdk: {
+      version: producer.toolchain.dotnetSdk,
+      rollForward: "disable",
+      allowPrerelease: false,
+    },
+  })
+  const workflow = readFileSync(join(root, ".github/workflows/release-candidate.yml"), "utf8").replaceAll("\r\n", "\n")
+  assert.match(workflow, /workflow_dispatch: \{\}/)
+  assert.doesNotMatch(workflow, /^    inputs:\s*$/m)
+  assert.match(workflow, /name: Invoke [^\n]*RedLeaf[^\n]*\n\s+working-directory: outfits/)
+  assert.doesNotMatch(workflow, /-notcmatch/)
+})
 
 test("Outfits is an optional versioned backend and frontend extension", () => {
   assert.doesNotThrow(() => validateInput(validProducer(), manifest, packageJson))
@@ -101,7 +117,7 @@ test("workflow pins actions, checks the immutable workflow revision, and invokes
   assert.match(workflow, /corepack pnpm install --frozen-lockfile/g)
   const toolRestore = workflow.indexOf("dotnet restore ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --locked-mode --nologo")
   const toolBuild = workflow.indexOf("dotnet build ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --configuration Release --no-restore --nologo")
-  const packer = workflow.indexOf("./redleaf/scripts/build-leafpkg-release.ps1")
+  const packer = workflow.indexOf("../redleaf/scripts/build-leafpkg-release.ps1")
   const candidateDll = workflow.indexOf("../redleaf/tools/RedLeaf.ReleaseTool/bin/Release/net9.0/RedLeaf.ReleaseTool.dll")
   assert.ok(toolRestore >= 0 && toolBuild > toolRestore)
   assert.ok(packer > toolBuild && candidateDll > toolBuild)
@@ -136,7 +152,7 @@ test("rolling unsigned acquisition bridge is serialized, append-only, and exact"
   assert.match(bridge, /\$tag = 'outfits-unsigned-candidates'/)
   assert.match(bridge, /gh release create \$tag --prerelease --latest=false/)
   assert.match(bridge, /-not \$release\.isPrerelease/)
-  assert.match(bridge, /\$candidateId -notcmatch '\^\[A-Za-z0-9\]\[A-Za-z0-9\._-\]\{0,199\}\$'/)
+  assert.match(bridge, /\$candidateId -cnotmatch '\^\[A-Za-z0-9\]\[A-Za-z0-9\._-\]\{0,199\}\$'/)
   assert.match(bridge, /bridge-assets\/\$\{candidateId\}\.candidate\.json/)
   assert.match(bridge, /bridge-assets\/\$artifactName/)
   assert.doesNotMatch(bridge, /visibility|already be public|public prerelease/i)

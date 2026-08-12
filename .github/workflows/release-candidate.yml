@@ -2,13 +2,11 @@ name: Build Outfits release candidate
 
 on:
   workflow_call:
-    inputs:
     secrets:
       CROSS_REPO_TOKEN:
         description: Optional token that can read the pinned RedBamboo and RedLeaf commits.
         required: false
-  workflow_dispatch:
-    inputs:
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -138,24 +136,25 @@ jobs:
             --output artifacts/outfits-release-metadata.v1.json
 
       - name: Invoke RedLeaf deterministic release packer
+        working-directory: outfits
         shell: pwsh
         run: |
-          & ./redleaf/scripts/build-leafpkg-release.ps1 `
-            -PluginDir ./outfits `
-            -Metadata ./outfits/artifacts/outfits-release-metadata.v1.json `
-            -OutputDir ./outfits/artifacts `
-            -BackendProject ./outfits/src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj `
-            -FrontendDir ./outfits/web `
+          & ../redleaf/scripts/build-leafpkg-release.ps1 `
+            -PluginDir . `
+            -Metadata ./artifacts/outfits-release-metadata.v1.json `
+            -OutputDir ./artifacts `
+            -BackendProject ./src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj `
+            -FrontendDir ./web `
             -Lock @(
-              'backend-nuget-lock=./outfits/src/Leaf.Plugins.Outfits/packages.lock.json',
-              'redbamboo-pnpm-lock=./redbamboo-packages/pnpm-lock.yaml',
-              'tests-nuget-lock=./outfits/tests/Leaf.Plugins.Outfits.Tests/packages.lock.json',
-              'web-pnpm-lock=./outfits/web/pnpm-lock.yaml'
+              'backend-nuget-lock=./src/Leaf.Plugins.Outfits/packages.lock.json',
+              'redbamboo-pnpm-lock=../redbamboo-packages/pnpm-lock.yaml',
+              'tests-nuget-lock=./tests/Leaf.Plugins.Outfits.Tests/packages.lock.json',
+              'web-pnpm-lock=./web/pnpm-lock.yaml'
             ) `
             -BuildInput @(
-              'leaf-sdk=./redleaf',
-              'redbamboo-ui=./redbamboo-packages',
-              'redbamboo-utility=./redbamboo-packages'
+              'leaf-sdk=../redleaf',
+              'redbamboo-ui=../redbamboo-packages',
+              'redbamboo-utility=../redbamboo-packages'
             )
 
       - name: Validate actual artifact and lock facts
@@ -198,12 +197,11 @@ jobs:
       - name: Invoke one RedLeaf candidate and signature-input path
         working-directory: outfits
         shell: pwsh
-        env:
         run: |
           $tool = '../redleaf/tools/RedLeaf.ReleaseTool/bin/Release/net9.0/RedLeaf.ReleaseTool.dll'
           $version = '${{ steps.pins.outputs.version }}'
           $artifactName = "outfits-$version.leafpkg"
-          if ($artifactName -notcmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$' -or $artifactName.Contains('..')) {
+          if ($artifactName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$' -or $artifactName.Contains('..')) {
             throw 'Derived producer artifact filename is not one safe filename.'
           }
           $artifactUrl = "https://github.com/RedBamboo-Interactive/outfits/releases/download/outfits-unsigned-candidates/$artifactName"
@@ -259,7 +257,7 @@ jobs:
             throw 'The acquisition bridge accepts only an unsigned candidate.'
           }
           $candidateId = [string]$candidate.candidateId
-          if ($candidateId -notcmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$') { throw 'Candidate ID is not a safe asset-name token.' }
+          if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$') { throw 'Candidate ID is not a safe asset-name token.' }
           $matchingArtifacts = @(Get-ChildItem bridge-input -Recurse -File | Where-Object {
             $_.Length -eq [long]$candidate.artifact.sizeBytes -and
             (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ceq [string]$candidate.artifact.sha256
@@ -275,7 +273,7 @@ jobs:
             throw 'Candidate artifact URL is outside the canonical producer prerelease.'
           }
           $artifactName = [IO.Path]::GetFileName($artifactUrl.AbsolutePath)
-          if ($artifactName -notcmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$') {
+          if ($artifactName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\.leafpkg$') {
             throw 'Candidate producer artifact name is unsafe.'
           }
           Copy-Item -LiteralPath $matchingArtifacts[0].FullName -Destination "bridge-assets/$artifactName"
