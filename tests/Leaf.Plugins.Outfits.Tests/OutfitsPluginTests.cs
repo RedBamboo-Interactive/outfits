@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Leaf.Plugins.Outfits;
 using Xunit;
 
@@ -38,5 +39,53 @@ public sealed class OutfitsPluginTests
 
         Assert.Equal(prompt, OutfitsPlugin.MigrateAutomationPrompt(prompt));
         Assert.Null(OutfitsPlugin.MigrateAutomationPrompt(null));
+    }
+
+    [Fact]
+    public void MigrateAutomationPrompt_UsesEntityOwnedComfyUiWorkflow()
+    {
+        const string prompt = "Generate:\n```bash\ncurl -s -o outfit.png -X POST http://localhost:18800/image-gen/generate -H \"Content-Type: application/json\" -d \"legacy\"\n```";
+
+        var migrated = OutfitsPlugin.MigrateAutomationPrompt(prompt)!;
+
+        Assert.Contains("/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate", migrated);
+        Assert.Contains("\\\"wait\\\":true", migrated);
+        Assert.DoesNotContain("localhost:18800/image-gen/generate", migrated);
+    }
+
+    [Fact]
+    public void MigrateFlowGraph_RewritesNovaSessionPromptWithoutMutatingSource()
+    {
+        var graph = JsonNode.Parse("""
+            {"nodes":[{"type":"nova-session","data":{"config":{"prompt":"old"}}}]}
+            """)!.AsObject();
+
+        var migrated = OutfitsPlugin.MigrateFlowGraph(graph, "new")!;
+
+        Assert.Equal("old", graph["nodes"]![0]!["data"]!["config"]!["prompt"]!.GetValue<string>());
+        Assert.Equal("new", migrated["nodes"]![0]!["data"]!["config"]!["prompt"]!.GetValue<string>());
+        Assert.Null(OutfitsPlugin.MigrateFlowGraph(migrated, "new"));
+    }
+
+    [Fact]
+    public void MigrateSkillInstructions_ReplacesDirectComputeAndRetiresManualProvenanceRecipe()
+    {
+        const string instructions = """
+            ## Key APIs
+            - **Generate image**: `POST http://127.0.0.1:18800/image-gen/generate` - `{workflow: "nova_outfit_zturbo", prompt}`
+
+            ## Interactive provenance
+            Send a hand-written X-Compute-Provenance header.
+
+            ## Prompt structure
+            Keep this section.
+            """;
+
+        var migrated = OutfitsPlugin.MigrateSkillInstructions(instructions)!;
+
+        Assert.Contains("/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate", migrated);
+        Assert.DoesNotContain("127.0.0.1:18800", migrated);
+        Assert.DoesNotContain("Interactive provenance", migrated);
+        Assert.Contains("## Prompt structure", migrated);
     }
 }

@@ -1,0 +1,843 @@
+[
+    {
+        "typeSlug":  "comfyui-workflow",
+        "slug":  "nova_outfit",
+        "name":  "Nova Outfit",
+        "data":  {
+                     "description":  "PuLID Flux portrait generation with face identity preservation. Generates new portraits with consistent face identity but different outfits, settings, and moods.",
+                     "media_type":  "image",
+                     "output_node":  "15",
+                     "parameters":  [
+                                        {
+                                            "name":  "prompt",
+                                            "node_id":  "10",
+                                            "field":  "t5xxl",
+                                            "type":  "string",
+                                            "required":  true,
+                                            "description":  "Detailed description of the portrait: outfit, mood, setting, lighting, pose"
+                                        },
+                                        {
+                                            "name":  "prompt_l",
+                                            "node_id":  "10",
+                                            "field":  "clip_l",
+                                            "type":  "string",
+                                            "default":  "",
+                                            "description":  "Short CLIP-L prompt summary (auto-derived if empty)"
+                                        },
+                                        {
+                                            "name":  "image",
+                                            "node_id":  "7",
+                                            "field":  "image",
+                                            "type":  "image",
+                                            "default":  "nova-avatar.png",
+                                            "description":  "Reference face image for identity preservation"
+                                        },
+                                        {
+                                            "name":  "seed",
+                                            "node_id":  "13",
+                                            "field":  "seed",
+                                            "type":  "integer",
+                                            "default":  "random"
+                                        },
+                                        {
+                                            "name":  "width",
+                                            "node_id":  "12",
+                                            "field":  "width",
+                                            "type":  "integer",
+                                            "default":  768
+                                        },
+                                        {
+                                            "name":  "height",
+                                            "node_id":  "12",
+                                            "field":  "height",
+                                            "type":  "integer",
+                                            "default":  1024
+                                        },
+                                        {
+                                            "name":  "steps",
+                                            "node_id":  "13",
+                                            "field":  "steps",
+                                            "type":  "integer",
+                                            "default":  25,
+                                            "minimum":  10,
+                                            "maximum":  50
+                                        },
+                                        {
+                                            "name":  "guidance",
+                                            "node_id":  "10",
+                                            "field":  "guidance",
+                                            "type":  "float",
+                                            "default":  5.0,
+                                            "minimum":  1.0,
+                                            "maximum":  10.0,
+                                            "step":  0.5
+                                        },
+                                        {
+                                            "name":  "pulid_weight",
+                                            "node_id":  "8",
+                                            "field":  "weight",
+                                            "type":  "float",
+                                            "default":  0.65,
+                                            "minimum":  0.0,
+                                            "maximum":  2.0,
+                                            "step":  0.05,
+                                            "description":  "Face identity strength (0.7-1.0 recommended)"
+                                        }
+                                    ],
+                     "workflow_json":  {
+                                           "1":  {
+                                                     "class_type":  "UNETLoader",
+                                                     "inputs":  {
+                                                                    "unet_name":  "flux1-dev-fp16.safetensors",
+                                                                    "weight_dtype":  "fp8_e4m3fn"
+                                                                }
+                                                 },
+                                           "2":  {
+                                                     "class_type":  "DualCLIPLoader",
+                                                     "inputs":  {
+                                                                    "clip_name1":  "clip_l.safetensors",
+                                                                    "clip_name2":  "t5xxl_fp16.safetensors",
+                                                                    "type":  "flux"
+                                                                }
+                                                 },
+                                           "3":  {
+                                                     "class_type":  "VAELoader",
+                                                     "inputs":  {
+                                                                    "vae_name":  "ae.safetensors"
+                                                                }
+                                                 },
+                                           "4":  {
+                                                     "class_type":  "PulidFluxModelLoader",
+                                                     "inputs":  {
+                                                                    "pulid_file":  "pulid_flux_v0.9.1.safetensors"
+                                                                }
+                                                 },
+                                           "5":  {
+                                                     "class_type":  "PulidFluxInsightFaceLoader",
+                                                     "inputs":  {
+                                                                    "provider":  "CUDA"
+                                                                }
+                                                 },
+                                           "6":  {
+                                                     "class_type":  "PulidFluxEvaClipLoader",
+                                                     "inputs":  {
+
+                                                                }
+                                                 },
+                                           "7":  {
+                                                     "class_type":  "LoadImage",
+                                                     "inputs":  {
+                                                                    "image":  "nova-avatar.png"
+                                                                }
+                                                 },
+                                           "8":  {
+                                                     "class_type":  "ApplyPulidFlux",
+                                                     "inputs":  {
+                                                                    "model":  [
+                                                                                  "1",
+                                                                                  0
+                                                                              ],
+                                                                    "pulid_flux":  [
+                                                                                       "4",
+                                                                                       0
+                                                                                   ],
+                                                                    "eva_clip":  [
+                                                                                     "6",
+                                                                                     0
+                                                                                 ],
+                                                                    "face_analysis":  [
+                                                                                          "5",
+                                                                                          0
+                                                                                      ],
+                                                                    "image":  [
+                                                                                  "7",
+                                                                                  0
+                                                                              ],
+                                                                    "weight":  0.65,
+                                                                    "start_at":  0.0,
+                                                                    "end_at":  1.0
+                                                                }
+                                                 },
+                                           "9":  {
+                                                     "class_type":  "FixPulidFluxPatch",
+                                                     "inputs":  {
+                                                                    "model":  [
+                                                                                  "8",
+                                                                                  0
+                                                                              ]
+                                                                }
+                                                 },
+                                           "10":  {
+                                                      "class_type":  "CLIPTextEncodeFlux",
+                                                      "inputs":  {
+                                                                     "clip":  [
+                                                                                  "2",
+                                                                                  0
+                                                                              ],
+                                                                     "clip_l":  "",
+                                                                     "t5xxl":  "",
+                                                                     "guidance":  5.0
+                                                                 }
+                                                  },
+                                           "11":  {
+                                                      "class_type":  "CLIPTextEncodeFlux",
+                                                      "inputs":  {
+                                                                     "clip":  [
+                                                                                  "2",
+                                                                                  0
+                                                                              ],
+                                                                     "clip_l":  "",
+                                                                     "t5xxl":  "",
+                                                                     "guidance":  5.0
+                                                                 }
+                                                  },
+                                           "12":  {
+                                                      "class_type":  "EmptyFlux2LatentImage",
+                                                      "inputs":  {
+                                                                     "width":  768,
+                                                                     "height":  1024,
+                                                                     "batch_size":  1
+                                                                 }
+                                                  },
+                                           "13":  {
+                                                      "class_type":  "KSampler",
+                                                      "inputs":  {
+                                                                     "model":  [
+                                                                                   "9",
+                                                                                   0
+                                                                               ],
+                                                                     "positive":  [
+                                                                                      "10",
+                                                                                      0
+                                                                                  ],
+                                                                     "negative":  [
+                                                                                      "11",
+                                                                                      0
+                                                                                  ],
+                                                                     "latent_image":  [
+                                                                                          "12",
+                                                                                          0
+                                                                                      ],
+                                                                     "seed":  0,
+                                                                     "steps":  25,
+                                                                     "cfg":  1.0,
+                                                                     "sampler_name":  "euler",
+                                                                     "scheduler":  "simple",
+                                                                     "denoise":  1.0
+                                                                 }
+                                                  },
+                                           "14":  {
+                                                      "class_type":  "VAEDecode",
+                                                      "inputs":  {
+                                                                     "samples":  [
+                                                                                     "13",
+                                                                                     0
+                                                                                 ],
+                                                                     "vae":  [
+                                                                                 "3",
+                                                                                 0
+                                                                             ]
+                                                                 }
+                                                  },
+                                           "15":  {
+                                                      "class_type":  "SaveImage",
+                                                      "inputs":  {
+                                                                     "images":  [
+                                                                                    "14",
+                                                                                    0
+                                                                                ],
+                                                                     "filename_prefix":  "nova_outfit"
+                                                                 }
+                                                  }
+                                       }
+                 }
+    },
+    {
+        "typeSlug":  "comfyui-workflow",
+        "slug":  "nova_outfit_zturbo",
+        "name":  "Nova Outfit · Z-Image Turbo",
+        "data":  {
+                     "description":  "z-turbo outfit generation. Fast, no face lock.",
+                     "media_type":  "image",
+                     "output_node":  "15",
+                     "parameters":  [
+                                        {
+                                            "name":  "prompt",
+                                            "node_id":  "6",
+                                            "field":  "text",
+                                            "type":  "string",
+                                            "required":  true,
+                                            "description":  "Character description: outfit, pose, setting, lighting"
+                                        },
+                                        {
+                                            "name":  "seed",
+                                            "node_id":  "31",
+                                            "field":  "seed",
+                                            "type":  "integer",
+                                            "default":  "random"
+                                        },
+                                        {
+                                            "name":  "width",
+                                            "node_id":  "10",
+                                            "field":  "width",
+                                            "type":  "integer",
+                                            "default":  1024
+                                        },
+                                        {
+                                            "name":  "height",
+                                            "node_id":  "10",
+                                            "field":  "height",
+                                            "type":  "integer",
+                                            "default":  1024
+                                        },
+                                        {
+                                            "name":  "steps",
+                                            "node_id":  "31",
+                                            "field":  "steps",
+                                            "type":  "integer",
+                                            "default":  12,
+                                            "minimum":  6,
+                                            "maximum":  30
+                                        },
+                                        {
+                                            "name":  "cfg",
+                                            "node_id":  "31",
+                                            "field":  "cfg",
+                                            "type":  "float",
+                                            "default":  1.3,
+                                            "minimum":  1.0,
+                                            "maximum":  5.0,
+                                            "step":  0.1
+                                        }
+                                    ],
+                     "workflow_json":  {
+                                           "131":  {
+                                                       "class_type":  "UNETLoader",
+                                                       "inputs":  {
+                                                                      "unet_name":  "z_image_turbo_bf16.safetensors",
+                                                                      "weight_dtype":  "default"
+                                                                  }
+                                                   },
+                                           "128":  {
+                                                       "class_type":  "CLIPLoader",
+                                                       "inputs":  {
+                                                                      "clip_name":  "qwen_3_4b.safetensors",
+                                                                      "type":  "lumina2",
+                                                                      "device":  "default"
+                                                                  }
+                                                   },
+                                           "127":  {
+                                                       "class_type":  "VAELoader",
+                                                       "inputs":  {
+                                                                      "vae_name":  "ae.safetensors"
+                                                                  }
+                                                   },
+                                           "6":  {
+                                                     "class_type":  "CLIPTextEncode",
+                                                     "inputs":  {
+                                                                    "text":  "",
+                                                                    "clip":  [
+                                                                                 "128",
+                                                                                 0
+                                                                             ]
+                                                                }
+                                                 },
+                                           "130":  {
+                                                       "class_type":  "CLIPTextEncode",
+                                                       "inputs":  {
+                                                                      "text":  "",
+                                                                      "clip":  [
+                                                                                   "128",
+                                                                                   0
+                                                                               ]
+                                                                  }
+                                                   },
+                                           "10":  {
+                                                      "class_type":  "EmptySD3LatentImage",
+                                                      "inputs":  {
+                                                                     "width":  1024,
+                                                                     "height":  1024,
+                                                                     "batch_size":  1
+                                                                 }
+                                                  },
+                                           "31":  {
+                                                      "class_type":  "KSampler",
+                                                      "inputs":  {
+                                                                     "model":  [
+                                                                                   "131",
+                                                                                   0
+                                                                               ],
+                                                                     "seed":  0,
+                                                                     "steps":  12,
+                                                                     "cfg":  1.3,
+                                                                     "sampler_name":  "res_multistep",
+                                                                     "scheduler":  "simple",
+                                                                     "positive":  [
+                                                                                      "6",
+                                                                                      0
+                                                                                  ],
+                                                                     "negative":  [
+                                                                                      "130",
+                                                                                      0
+                                                                                  ],
+                                                                     "latent_image":  [
+                                                                                          "10",
+                                                                                          0
+                                                                                      ],
+                                                                     "denoise":  1.0
+                                                                 }
+                                                  },
+                                           "8":  {
+                                                     "class_type":  "VAEDecode",
+                                                     "inputs":  {
+                                                                    "samples":  [
+                                                                                    "31",
+                                                                                    0
+                                                                                ],
+                                                                    "vae":  [
+                                                                                "127",
+                                                                                0
+                                                                            ]
+                                                                }
+                                                 },
+                                           "15":  {
+                                                      "class_type":  "SaveImage",
+                                                      "inputs":  {
+                                                                     "images":  [
+                                                                                    "8",
+                                                                                    0
+                                                                                ],
+                                                                     "filename_prefix":  "nova_outfit_zt"
+                                                                 }
+                                                  }
+                                       }
+                 }
+    },
+    {
+        "typeSlug":  "comfyui-workflow",
+        "slug":  "nova_outfit_zturbo_pose",
+        "name":  "Nova Outfit · Z-Image Turbo Pose",
+        "data":  {
+                     "description":  "z-turbo outfit generation with pose reference via Z-Image ControlNet Union.",
+                     "media_type":  "image",
+                     "output_node":  "15",
+                     "parameters":  [
+                                        {
+                                            "name":  "prompt",
+                                            "node_id":  "6",
+                                            "field":  "text",
+                                            "type":  "string",
+                                            "required":  true,
+                                            "description":  "Character description: outfit, pose, setting, lighting"
+                                        },
+                                        {
+                                            "name":  "pose_image",
+                                            "node_id":  "200",
+                                            "field":  "image",
+                                            "type":  "string",
+                                            "required":  true,
+                                            "description":  "Filename of pose reference image in ComfyUI/input/"
+                                        },
+                                        {
+                                            "name":  "pose_strength",
+                                            "node_id":  "203",
+                                            "field":  "strength",
+                                            "type":  "float",
+                                            "default":  0.75,
+                                            "minimum":  0.0,
+                                            "maximum":  1.5,
+                                            "step":  0.05
+                                        },
+                                        {
+                                            "name":  "seed",
+                                            "node_id":  "31",
+                                            "field":  "seed",
+                                            "type":  "integer",
+                                            "default":  "random"
+                                        },
+                                        {
+                                            "name":  "width",
+                                            "node_id":  "10",
+                                            "field":  "width",
+                                            "type":  "integer",
+                                            "default":  1024
+                                        },
+                                        {
+                                            "name":  "height",
+                                            "node_id":  "10",
+                                            "field":  "height",
+                                            "type":  "integer",
+                                            "default":  1024
+                                        },
+                                        {
+                                            "name":  "steps",
+                                            "node_id":  "31",
+                                            "field":  "steps",
+                                            "type":  "integer",
+                                            "default":  12,
+                                            "minimum":  6,
+                                            "maximum":  30
+                                        },
+                                        {
+                                            "name":  "cfg",
+                                            "node_id":  "31",
+                                            "field":  "cfg",
+                                            "type":  "float",
+                                            "default":  1.3,
+                                            "minimum":  1.0,
+                                            "maximum":  5.0,
+                                            "step":  0.1
+                                        }
+                                    ],
+                     "workflow_json":  {
+                                           "131":  {
+                                                       "class_type":  "UNETLoader",
+                                                       "inputs":  {
+                                                                      "unet_name":  "z_image_turbo_bf16.safetensors",
+                                                                      "weight_dtype":  "default"
+                                                                  }
+                                                   },
+                                           "128":  {
+                                                       "class_type":  "CLIPLoader",
+                                                       "inputs":  {
+                                                                      "clip_name":  "qwen_3_4b.safetensors",
+                                                                      "type":  "lumina2",
+                                                                      "device":  "default"
+                                                                  }
+                                                   },
+                                           "127":  {
+                                                       "class_type":  "VAELoader",
+                                                       "inputs":  {
+                                                                      "vae_name":  "ae.safetensors"
+                                                                  }
+                                                   },
+                                           "6":  {
+                                                     "class_type":  "CLIPTextEncode",
+                                                     "inputs":  {
+                                                                    "text":  "",
+                                                                    "clip":  [
+                                                                                 "128",
+                                                                                 0
+                                                                             ]
+                                                                }
+                                                 },
+                                           "130":  {
+                                                       "class_type":  "CLIPTextEncode",
+                                                       "inputs":  {
+                                                                      "text":  "",
+                                                                      "clip":  [
+                                                                                   "128",
+                                                                                   0
+                                                                               ]
+                                                                  }
+                                                   },
+                                           "10":  {
+                                                      "class_type":  "EmptySD3LatentImage",
+                                                      "inputs":  {
+                                                                     "width":  1024,
+                                                                     "height":  1024,
+                                                                     "batch_size":  1
+                                                                 }
+                                                  },
+                                           "200":  {
+                                                       "class_type":  "LoadImage",
+                                                       "inputs":  {
+                                                                      "image":  "pose_downblouse_ref.png"
+                                                                  }
+                                                   },
+                                           "201":  {
+                                                       "class_type":  "OpenposePreprocessor",
+                                                       "inputs":  {
+                                                                      "image":  [
+                                                                                    "200",
+                                                                                    0
+                                                                                ],
+                                                                      "detect_hand":  "enable",
+                                                                      "detect_body":  "enable",
+                                                                      "detect_face":  "enable",
+                                                                      "resolution":  1024
+                                                                  }
+                                                   },
+                                           "202":  {
+                                                       "class_type":  "ModelPatchLoader",
+                                                       "inputs":  {
+                                                                      "name":  "Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors"
+                                                                  }
+                                                   },
+                                           "203":  {
+                                                       "class_type":  "QwenImageDiffsynthControlnet",
+                                                       "inputs":  {
+                                                                      "model":  [
+                                                                                    "131",
+                                                                                    0
+                                                                                ],
+                                                                      "model_patch":  [
+                                                                                          "202",
+                                                                                          0
+                                                                                      ],
+                                                                      "vae":  [
+                                                                                  "127",
+                                                                                  0
+                                                                              ],
+                                                                      "image":  [
+                                                                                    "200",
+                                                                                    0
+                                                                                ],
+                                                                      "strength":  0.75
+                                                                  }
+                                                   },
+                                           "31":  {
+                                                      "class_type":  "KSampler",
+                                                      "inputs":  {
+                                                                     "model":  [
+                                                                                   "203",
+                                                                                   0
+                                                                               ],
+                                                                     "seed":  0,
+                                                                     "steps":  12,
+                                                                     "cfg":  1.3,
+                                                                     "sampler_name":  "res_multistep",
+                                                                     "scheduler":  "simple",
+                                                                     "positive":  [
+                                                                                      "6",
+                                                                                      0
+                                                                                  ],
+                                                                     "negative":  [
+                                                                                      "130",
+                                                                                      0
+                                                                                  ],
+                                                                     "latent_image":  [
+                                                                                          "10",
+                                                                                          0
+                                                                                      ],
+                                                                     "denoise":  1.0
+                                                                 }
+                                                  },
+                                           "8":  {
+                                                     "class_type":  "VAEDecode",
+                                                     "inputs":  {
+                                                                    "samples":  [
+                                                                                    "31",
+                                                                                    0
+                                                                                ],
+                                                                    "vae":  [
+                                                                                "127",
+                                                                                0
+                                                                            ]
+                                                                }
+                                                 },
+                                           "15":  {
+                                                      "class_type":  "SaveImage",
+                                                      "inputs":  {
+                                                                     "images":  [
+                                                                                    "8",
+                                                                                    0
+                                                                                ],
+                                                                     "filename_prefix":  "nova_outfit_zt_pose"
+                                                                 }
+                                                  }
+                                       }
+                 }
+    },
+    {
+        "typeSlug":  "comfyui-workflow",
+        "slug":  "nova_outfit_flux_krea",
+        "name":  "Nova Outfit · FLUX Krea",
+        "data":  {
+                     "description":  "FLUX.1 Krea Dev cinematic fashion and environment generation. Full-quality BF16 defaults for RTX 5090, with installed FP8 fallbacks. No face lock.",
+                     "media_type":  "image",
+                     "output_node":  "9",
+                     "parameters":  [
+                                        {
+                                            "name":  "prompt",
+                                            "node_id":  "4",
+                                            "field":  "t5xxl",
+                                            "type":  "string",
+                                            "required":  true,
+                                            "description":  "Detailed natural-language scene, subject, composition, lighting, palette, texture, and camera description"
+                                        },
+                                        {
+                                            "name":  "prompt_l",
+                                            "node_id":  "4",
+                                            "field":  "clip_l",
+                                            "type":  "string",
+                                            "default":  "",
+                                            "description":  "Optional short CLIP-L summary; leave empty unless prompt adherence needs reinforcement"
+                                        },
+                                        {
+                                            "name":  "seed",
+                                            "node_id":  "7",
+                                            "field":  "seed",
+                                            "type":  "integer",
+                                            "default":  "random"
+                                        },
+                                        {
+                                            "name":  "width",
+                                            "node_id":  "6",
+                                            "field":  "width",
+                                            "type":  "integer",
+                                            "default":  1536,
+                                            "minimum":  512,
+                                            "maximum":  2048,
+                                            "step":  16
+                                        },
+                                        {
+                                            "name":  "height",
+                                            "node_id":  "6",
+                                            "field":  "height",
+                                            "type":  "integer",
+                                            "default":  864,
+                                            "minimum":  512,
+                                            "maximum":  2048,
+                                            "step":  16
+                                        },
+                                        {
+                                            "name":  "steps",
+                                            "node_id":  "7",
+                                            "field":  "steps",
+                                            "type":  "integer",
+                                            "default":  28,
+                                            "minimum":  16,
+                                            "maximum":  50
+                                        },
+                                        {
+                                            "name":  "guidance",
+                                            "node_id":  "4",
+                                            "field":  "guidance",
+                                            "type":  "float",
+                                            "default":  4.5,
+                                            "minimum":  1.0,
+                                            "maximum":  8.0,
+                                            "step":  0.1,
+                                            "description":  "FLUX distilled guidance; 4.0-5.0 is the useful photographic range"
+                                        },
+                                        {
+                                            "name":  "model_quality",
+                                            "node_id":  "1",
+                                            "field":  "unet_name",
+                                            "type":  "string",
+                                            "default":  "flux1-krea-dev.safetensors",
+                                            "enum":  [
+                                                         "flux1-krea-dev.safetensors",
+                                                         "flux1-krea-dev_fp8_scaled.safetensors"
+                                                     ],
+                                            "description":  "Full BF16 for maximum quality; scaled FP8 for faster loading and lower VRAM"
+                                        },
+                                        {
+                                            "name":  "text_encoder",
+                                            "node_id":  "2",
+                                            "field":  "clip_name2",
+                                            "type":  "string",
+                                            "default":  "t5xxl_fp16.safetensors",
+                                            "enum":  [
+                                                         "t5xxl_fp16.safetensors",
+                                                         "t5xxl_fp8_e4m3fn_scaled.safetensors"
+                                                     ],
+                                            "description":  "Full T5 for maximum prompt fidelity; FP8 T5 for lower peak VRAM"
+                                        }
+                                    ],
+                     "workflow_json":  {
+                                           "1":  {
+                                                     "class_type":  "UNETLoader",
+                                                     "inputs":  {
+                                                                    "unet_name":  "flux1-krea-dev.safetensors",
+                                                                    "weight_dtype":  "default"
+                                                                }
+                                                 },
+                                           "2":  {
+                                                     "class_type":  "DualCLIPLoader",
+                                                     "inputs":  {
+                                                                    "clip_name1":  "clip_l.safetensors",
+                                                                    "clip_name2":  "t5xxl_fp16.safetensors",
+                                                                    "type":  "flux"
+                                                                }
+                                                 },
+                                           "3":  {
+                                                     "class_type":  "VAELoader",
+                                                     "inputs":  {
+                                                                    "vae_name":  "ae.safetensors"
+                                                                }
+                                                 },
+                                           "4":  {
+                                                     "class_type":  "CLIPTextEncodeFlux",
+                                                     "inputs":  {
+                                                                    "clip":  [
+                                                                                 "2",
+                                                                                 0
+                                                                             ],
+                                                                    "clip_l":  "",
+                                                                    "t5xxl":  "",
+                                                                    "guidance":  4.5
+                                                                }
+                                                 },
+                                           "5":  {
+                                                     "class_type":  "ConditioningZeroOut",
+                                                     "inputs":  {
+                                                                    "conditioning":  [
+                                                                                         "4",
+                                                                                         0
+                                                                                     ]
+                                                                }
+                                                 },
+                                           "6":  {
+                                                     "class_type":  "EmptySD3LatentImage",
+                                                     "inputs":  {
+                                                                    "width":  1536,
+                                                                    "height":  864,
+                                                                    "batch_size":  1
+                                                                }
+                                                 },
+                                           "7":  {
+                                                     "class_type":  "KSampler",
+                                                     "inputs":  {
+                                                                    "model":  [
+                                                                                  "1",
+                                                                                  0
+                                                                              ],
+                                                                    "positive":  [
+                                                                                     "4",
+                                                                                     0
+                                                                                 ],
+                                                                    "negative":  [
+                                                                                     "5",
+                                                                                     0
+                                                                                 ],
+                                                                    "latent_image":  [
+                                                                                         "6",
+                                                                                         0
+                                                                                     ],
+                                                                    "seed":  0,
+                                                                    "steps":  28,
+                                                                    "cfg":  1.0,
+                                                                    "sampler_name":  "euler",
+                                                                    "scheduler":  "simple",
+                                                                    "denoise":  1.0
+                                                                }
+                                                 },
+                                           "8":  {
+                                                     "class_type":  "VAEDecode",
+                                                     "inputs":  {
+                                                                    "samples":  [
+                                                                                    "7",
+                                                                                    0
+                                                                                ],
+                                                                    "vae":  [
+                                                                                "3",
+                                                                                0
+                                                                            ]
+                                                                }
+                                                 },
+                                           "9":  {
+                                                     "class_type":  "SaveImage",
+                                                     "inputs":  {
+                                                                    "images":  [
+                                                                                   "8",
+                                                                                   0
+                                                                               ],
+                                                                    "filename_prefix":  "nova_outfit_flux_krea"
+                                                                }
+                                                 }
+                                       }
+                 }
+    }
+]
