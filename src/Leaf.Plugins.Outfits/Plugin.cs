@@ -48,25 +48,49 @@ public sealed class OutfitsPlugin : ILeafPlugin
             await store.PatchAsync(skill.Id, new JsonObject { ["instructions"] = migratedInstructions }, ct: ct);
 
         var automation = await store.GetBySlugAsync("automation", OutfitAutomationSlug, ct);
-        if (automation?.TypeSlug != "automation") return;
+        if (automation?.TypeSlug == "automation")
+        {
+            var prompt = OutfitData.String(automation.Data, "prompt");
+            var migrated = MigrateAutomationPrompt(prompt);
+            if (migrated != null)
+            {
+                if (migrated != prompt)
+                    await store.PatchAsync(automation.Id, new JsonObject { ["prompt"] = migrated }, ct: ct);
 
-        var prompt = OutfitData.String(automation.Data, "prompt");
-        var migrated = MigrateAutomationPrompt(prompt);
-        if (migrated == null) return;
+                var flowIdText = automation.Data["workflow"]?["entity_id"]?.GetValue<string>();
+                if (Guid.TryParse(flowIdText, out var flowId)
+                    && await store.GetAsync(flowId, ct) is { TypeSlug: "flow" } flow
+                    && flow.Data["graph"] is JsonObject graph)
+                {
+                    var migratedGraph = MigrateFlowGraph(graph, migrated);
+                    if (migratedGraph is not null)
+                        await store.PatchAsync(flow.Id, new JsonObject { ["graph"] = migratedGraph }, ct: ct);
+                }
+            }
+        }
 
-        if (migrated != prompt)
-            await store.PatchAsync(automation.Id, new JsonObject { ["prompt"] = migrated }, ct: ct);
+        // Older disabled automation wrappers still point at historical outfit flows.
+        // Keep those executable too instead of only repairing today's linked flow.
+        var flows = new List<LeafEntity>();
+        for (var offset = 0;; offset += 500)
+        {
+            var page = await store.QueryAsync(new EntityQuery
+            {
+                TypeSlug = "flow",
+                Limit = 500,
+                Offset = offset,
+            }, ct);
+            flows.AddRange(page);
+            if (page.Count < 500) break;
+        }
 
-        var flowIdText = automation.Data["workflow"]?["entity_id"]?.GetValue<string>();
-        if (!Guid.TryParse(flowIdText, out var flowId)) return;
-        var flow = await store.GetAsync(flowId, ct);
-        if (flow is not { TypeSlug: "flow" }) return;
-
-        var graph = flow.Data["graph"] as JsonObject;
-        if (graph is null) return;
-        var migratedGraph = MigrateFlowGraph(graph, migrated);
-        if (migratedGraph is not null)
-            await store.PatchAsync(flow.Id, new JsonObject { ["graph"] = migratedGraph }, ct: ct);
+        foreach (var flow in flows)
+        {
+            if (flow.Data.ContainsKey("owner_plugin")) continue;
+            var migratedGraph = MigrateStoredFlowPrompts(flow.Data["graph"]);
+            if (migratedGraph is not null)
+                await store.PatchAsync(flow.Id, new JsonObject { ["graph"] = migratedGraph }, ct: ct);
+        }
 
     }
 
@@ -104,6 +128,44 @@ public sealed class OutfitsPlugin : ILeafPlugin
         }
 
         return null;
+    }
+
+    internal static JsonNode? MigrateStoredFlowPrompts(JsonNode? storedGraph)
+    {
+        var wasString = false;
+        JsonObject graph;
+        if (storedGraph is JsonObject graphObject)
+        {
+            graph = graphObject;
+        }
+        else if (storedGraph is JsonValue value
+                 && value.TryGetValue<string>(out var json)
+                 && JsonNode.Parse(json) is JsonObject parsed)
+        {
+            graph = parsed;
+            wasString = true;
+        }
+        else
+        {
+            return null;
+        }
+
+        var clone = (JsonObject)graph.DeepClone();
+        if (clone["nodes"] is not JsonArray nodes) return null;
+        var changed = false;
+        foreach (var node in nodes.OfType<JsonObject>())
+        {
+            if (node["type"]?.GetValue<string>() != "nova-session") continue;
+            if (node["data"]?["config"] is not JsonObject config) continue;
+            var prompt = config["prompt"]?.GetValue<string>();
+            var migrated = MigrateAutomationPrompt(prompt);
+            if (migrated is null || migrated == prompt) continue;
+            config["prompt"] = migrated;
+            changed = true;
+        }
+
+        if (!changed) return null;
+        return wasString ? JsonValue.Create(clone.ToJsonString()) : clone;
     }
 
     internal static string? MigrateSkillInstructions(string? instructions)

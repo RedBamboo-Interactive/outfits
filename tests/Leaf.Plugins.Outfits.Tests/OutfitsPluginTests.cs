@@ -87,6 +87,23 @@ public sealed class OutfitsPluginTests
     }
 
     [Fact]
+    public void MigrateStoredFlowPrompts_RepairsHistoricalStringGraphs()
+    {
+        var stored = JsonValue.Create("""
+            {"nodes":[{"type":"nova-session","data":{"config":{"prompt":"curl -s -o outfit.png -X POST http://localhost:18800/image-gen/generate -d legacy"}}}]}
+            """);
+
+        var migrated = OutfitsPlugin.MigrateStoredFlowPrompts(stored);
+
+        Assert.IsAssignableFrom<JsonValue>(migrated);
+        var graph = JsonNode.Parse(migrated!.GetValue<string>())!.AsObject();
+        var prompt = graph["nodes"]![0]!["data"]!["config"]!["prompt"]!.GetValue<string>();
+        Assert.Contains("provider-comfyui/workflows/nova_outfit_zturbo/generate", prompt);
+        Assert.Contains("Authorization: Bearer $REDLEAF_EXECUTION_TOKEN", prompt);
+        Assert.Null(OutfitsPlugin.MigrateStoredFlowPrompts(migrated));
+    }
+
+    [Fact]
     public void MigrateSkillInstructions_ReplacesDirectComputeAndRetiresManualProvenanceRecipe()
     {
         const string instructions = """
