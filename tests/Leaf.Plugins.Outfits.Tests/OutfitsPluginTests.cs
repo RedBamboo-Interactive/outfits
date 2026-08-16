@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Leaf.Plugins.Outfits;
 using Xunit;
 
@@ -49,8 +50,26 @@ public sealed class OutfitsPluginTests
         var migrated = OutfitsPlugin.MigrateAutomationPrompt(prompt)!;
 
         Assert.Contains("/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate", migrated);
+        Assert.Contains("Authorization: Bearer $REDLEAF_EXECUTION_TOKEN", migrated);
         Assert.Contains("\\\"wait\\\":true", migrated);
         Assert.DoesNotContain("localhost:18800/image-gen/generate", migrated);
+    }
+
+    [Fact]
+    public void MigrateAutomationPrompt_CarriesSessionIdentityThroughEveryMutation()
+    {
+        const string prompt = """
+            curl -sS -o outfit.png -X POST http://127.0.0.1:18804/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate -H "Content-Type: application/json" -d "{}"
+            curl -s -X POST http://localhost:18804/api/assets/upload -F file=@outfit.png
+            curl -s -X POST http://127.0.0.1:18804/api/apps/outfits -H "Content-Type: application/json" -d "{}"
+            curl -s -X POST http://127.0.0.1:18804/api/apps/outfits/select -H "Content-Type: application/json" -d "{}"
+            """;
+
+        var migrated = OutfitsPlugin.MigrateAutomationPrompt(prompt)!;
+
+        Assert.Equal(4, Regex.Matches(migrated,
+            "Authorization: Bearer \\$REDLEAF_EXECUTION_TOKEN").Count);
+        Assert.Equal(migrated, OutfitsPlugin.MigrateAutomationPrompt(migrated));
     }
 
     [Fact]
@@ -84,6 +103,7 @@ public sealed class OutfitsPluginTests
         var migrated = OutfitsPlugin.MigrateSkillInstructions(instructions)!;
 
         Assert.Contains("/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate", migrated);
+        Assert.Contains("Authorization: Bearer $REDLEAF_EXECUTION_TOKEN", migrated);
         Assert.DoesNotContain("127.0.0.1:18800", migrated);
         Assert.DoesNotContain("Interactive provenance", migrated);
         Assert.Contains("## Prompt structure", migrated);
