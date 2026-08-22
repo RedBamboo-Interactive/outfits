@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
 import test from "node:test"
-import { buildMetadata, canonical, detectPnpmVersion, hashFile, validateInput } from "../scripts/release/metadata.mjs"
+import { buildMetadata, canonical, detectPnpmVersion, hashFile, validateExactVersionOverride, validateInput } from "../scripts/release/metadata.mjs"
 
 const root = resolve(import.meta.dirname, "..")
 const readText = (path) => readFileSync(join(root, path), "utf8").replaceAll("\r\n", "\n")
@@ -12,8 +12,29 @@ const manifest = readJson("plugin.json")
 const packageJson = readJson("web/package.json")
 const producer = readJson("release/producer-input.v1.json")
 const dotnetSdk = readJson("global.json")
+
+test("cross-repository bridge retains the scoped producer token", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release-candidate.yml"), "utf8")
+  assert.match(workflow, /GH_TOKEN: \$\{\{ secrets\.CROSS_REPO_TOKEN \|\| github\.token \}\}/)
+  assert.doesNotMatch(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/)
+})
 const centralRedLeafCommit = "4bf0894014b392e60cf0b5c6ca85920428ba7516"
 const validProducer = () => structuredClone(producer)
+
+test("automated version overrides can change only the three version fields", () => {
+  const head = { manifest: structuredClone(manifest), input: structuredClone(producer), packageJson: structuredClone(packageJson) }
+  const current = structuredClone(head)
+  current.manifest.version = "0.1.1"
+  current.input.identity.version = "0.1.1"
+  current.packageJson.version = "0.1.1"
+  assert.doesNotThrow(() => validateExactVersionOverride(head, current, "0.1.1"))
+  current.manifest.description = "unexpected mutation"
+  assert.throws(() => validateExactVersionOverride(head, current, "0.1.1"), /beyond the exact release version fields/)
+  const inconsistent = structuredClone(head)
+  inconsistent.manifest.version = "0.1.1"
+  assert.throws(() => validateExactVersionOverride(head, inconsistent, "0.1.1"), /must match the requested version/)
+  assert.throws(() => validateExactVersionOverride(head, head, manifest.version), /must change the committed version/)
+})
 
 test("repository SDK selection is exact and the packer runs inside the component checkout", () => {
   assert.deepEqual(dotnetSdk, {
@@ -24,8 +45,9 @@ test("repository SDK selection is exact and the packer runs inside the component
     },
   })
   const workflow = readFileSync(join(root, ".github/workflows/release-candidate.yml"), "utf8").replaceAll("\r\n", "\n")
-  assert.match(workflow, /workflow_dispatch: \{\}/)
-  assert.doesNotMatch(workflow, /^    inputs:\s*$/m)
+  assert.match(workflow, /workflow_call:\n    inputs:/)
+  assert.match(workflow, /workflow_dispatch:\n    inputs:/)
+  assert.ok((workflow.match(/inputs\.source_commit \|\| github\.workflow_sha/g) ?? []).length >= 3)
   assert.match(workflow, /name: Invoke [^\n]*RedLeaf[^\n]*\n\s+working-directory: outfits/)
   assert.doesNotMatch(workflow, /-notcmatch/)
 })
@@ -111,8 +133,8 @@ test("workflow pins actions, checks the immutable workflow revision, and invokes
   assert.ok(actionRefs.length >= 5)
   for (const ref of actionRefs) assert.match(ref, /^[a-f0-9]{40}$/)
   assert.doesNotMatch(workflow, /github\.sha|--channel|stable|nightly|candidate (build|finalize)|registry|signer|id-token:\s*write/i)
-  assert.match(workflow, /ref: \$\{\{ github\.workflow_sha \}\}/)
-  assert.match(workflow, /--source-commit \"\$\{\{ github\.workflow_sha \}\}\"/)
+  assert.match(workflow, /ref: \$\{\{ inputs\.source_commit \|\| github\.workflow_sha \}\}/)
+  assert.match(workflow, /--source-commit \"\$\{\{ inputs\.source_commit \|\| github\.workflow_sha \}\}\"/)
   assert.equal((workflow.match(/candidate ingest-extension/g) ?? []).length, 1)
   assert.match(workflow, /corepack pnpm install --frozen-lockfile/g)
   const toolRestore = workflow.indexOf("dotnet restore ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --locked-mode --nologo")
@@ -183,6 +205,6 @@ test("unsigned handoff is retained for the bridge without additional release mac
   for (const path of ["outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg", "outfits/artifacts/outfits-candidate.unsigned.json", "outfits/artifacts/outfits-signature-input.json"]) assert.match(workflow, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
   assert.match(workflow, /retention-days: 1/)
   assert.match(workflow, /actions\/download-artifact@[a-f0-9]{40}/)
-  assert.match(workflow, /name: outfits-\$\{\{ needs\.candidate\.outputs\.version \}\}-\$\{\{ github\.workflow_sha \}\}-unsigned-release-inputs/)
+  assert.match(workflow, /name: outfits-\$\{\{ needs\.candidate\.outputs\.version \}\}-\$\{\{ inputs\.source_commit \|\| github\.workflow_sha \}\}-unsigned-release-inputs/)
   assert.doesNotMatch([readText("scripts/release/metadata.mjs"), workflow].join("\n"), /treeId|subtree|fileInventory|payloadSha256|signatureDomain|cyclonedx|private key|registry snapshot|channel pointer|feed-publish|pointer-prepare/i)
 })

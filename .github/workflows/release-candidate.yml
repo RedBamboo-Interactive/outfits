@@ -2,11 +2,28 @@ name: Build Outfits release candidate
 
 on:
   workflow_call:
+    inputs:
+      version:
+        description: Optional exact semantic version stamped into an automated candidate.
+        required: false
+        default: ''
+        type: string
+      source_commit:
+        description: Exact producer source commit supplied by trusted automation.
+        required: false
+        default: ''
+        type: string
     secrets:
       CROSS_REPO_TOKEN:
         description: Optional token that can read the pinned RedBamboo and RedLeaf commits.
         required: false
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional exact semantic version; empty keeps the committed manifest version.
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -24,9 +41,32 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           repository: RedBamboo-Interactive/outfits
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ inputs.source_commit || github.workflow_sha }}
           path: outfits
           persist-credentials: false
+
+      - name: Apply requested release version ephemerally
+        if: ${{ inputs.version != '' }}
+        working-directory: outfits
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:REQUESTED_VERSION -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+            throw 'Requested candidate version must be exact SemVer.'
+          }
+          $manifestPath = 'plugin.json'
+          $producerPath = 'release/producer-input.v1.json'
+          $packagePath = 'web/package.json'
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $producer = Get-Content -LiteralPath $producerPath -Raw | ConvertFrom-Json
+          $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
+          $manifest.version = $env:REQUESTED_VERSION
+          $producer.identity.version = $env:REQUESTED_VERSION
+          $package.version = $env:REQUESTED_VERSION
+          $manifest | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
+          $producer | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $producerPath -Encoding utf8NoBOM
+          $package | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $packagePath -Encoding utf8NoBOM
 
       - name: Read and require immutable producer pins
         id: pins
@@ -38,6 +78,7 @@ jobs:
           $redleaf = [string]$input.redleaf.commit
           $redbamboo = [string]$input.redbamboo.commit
           $version = [string]$manifest.version
+          if ([string]::IsNullOrWhiteSpace('${{ inputs.source_commit }}') -and '${{ github.repository }}' -cne 'RedBamboo-Interactive/outfits') { throw 'Cross-repository callers must supply the exact canonical Outfits source commit.' }
           if ($redleaf -notmatch '^[a-f0-9]{40}$') { throw 'RedLeaf release-tool commit pin is unresolved; replace the single placeholder in release/producer-input.v1.json.' }
           if ($redbamboo -notmatch '^[a-f0-9]{40}$') { throw 'RedBamboo commit must be one full immutable SHA.' }
           if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') { throw 'plugin.json version must be exact SemVer.' }
@@ -84,7 +125,7 @@ jobs:
       - name: Verify exact checkouts
         shell: pwsh
         run: |
-          if ((git -C outfits rev-parse HEAD).Trim() -cne '${{ github.workflow_sha }}') { throw 'Outfits checkout does not match the called workflow commit.' }
+          if ((git -C outfits rev-parse HEAD).Trim() -cne '${{ inputs.source_commit || github.workflow_sha }}') { throw 'Outfits checkout does not match the called workflow commit.' }
           if ((git -C redbamboo-packages rev-parse HEAD).Trim() -cne '${{ steps.pins.outputs.redbamboo }}') { throw 'RedBamboo checkout does not match its producer pin.' }
           if ((git -C redleaf rev-parse HEAD).Trim() -cne '${{ steps.pins.outputs.redleaf }}') { throw 'RedLeaf checkout does not match its producer pin.' }
 
@@ -131,7 +172,7 @@ jobs:
             --repository . `
             --redbamboo ../redbamboo-packages `
             --redleaf ../redleaf `
-            --source-commit "${{ github.workflow_sha }}" `
+            --source-commit "${{ inputs.source_commit || github.workflow_sha }}" `
             --source-date-epoch $sourceDateEpoch `
             --output artifacts/outfits-release-metadata.v1.json
 
@@ -168,7 +209,7 @@ jobs:
             --repository . `
             --redbamboo ../redbamboo-packages `
             --redleaf ../redleaf `
-            --source-commit "${{ github.workflow_sha }}" `
+            --source-commit "${{ inputs.source_commit || github.workflow_sha }}" `
             --source-date-epoch $sourceDateEpoch `
             --metadata artifacts/outfits-release-metadata.v1.json `
             --descriptor "artifacts/outfits-$version.component-input.v1.json" `
@@ -218,7 +259,7 @@ jobs:
       - name: Upload immutable unsigned handoff only
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: outfits-${{ steps.pins.outputs.version }}-${{ github.workflow_sha }}-unsigned-release-inputs
+          name: outfits-${{ steps.pins.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-unsigned-release-inputs
           path: |
             outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg
             outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.component-input.v1.json
@@ -244,7 +285,7 @@ jobs:
       - name: Download exact unsigned candidate inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: outfits-${{ needs.candidate.outputs.version }}-${{ github.workflow_sha }}-unsigned-release-inputs
+          name: outfits-${{ needs.candidate.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-unsigned-release-inputs
           path: bridge-input
 
       - name: Prepare candidate-ID-derived bridge assets
@@ -281,13 +322,13 @@ jobs:
       - name: Append without replacement and re-verify every bridge asset
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
           GH_REPO: RedBamboo-Interactive/outfits
         run: |
           $tag = 'outfits-unsigned-candidates'
           $releaseJson = & gh release view $tag --json isDraft,isPrerelease,assets 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --prerelease --latest=false --target '${{ github.workflow_sha }}' `
+            gh release create $tag --prerelease --latest=false --target '${{ inputs.source_commit || github.workflow_sha }}' `
               --title 'Rolling unsigned Outfits candidates' `
               --notes 'Unsigned producer inputs for exact central component publication. Trust comes only from central signed metadata.'
             if ($LASTEXITCODE -ne 0) { throw 'Could not create the rolling Outfits candidate prerelease.' }

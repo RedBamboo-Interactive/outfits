@@ -34,6 +34,36 @@ function facts(path) { return { sizeBytes: statSync(path).size, sha256: hashFile
 function exactCommit(value, label) { if (!/^[a-f0-9]{40}$/.test(value)) fail(`${label} must be one full lowercase commit SHA.`) }
 function cleanGit(root, label) { if (git(root, "status", "--porcelain=v1", "--untracked-files=all")) fail(`${label} checkout must be clean.`) }
 
+export function validateExactVersionOverride(head, current, expectedVersion) {
+  const headVersion = head.manifest.version
+  if (head.input.identity.version !== headVersion || head.packageJson.version !== headVersion) fail("Committed Outfits version fields are inconsistent.")
+  if (expectedVersion === headVersion) fail("An ephemeral release override must change the committed version.")
+  if (current.manifest.version !== expectedVersion || current.input.identity.version !== expectedVersion || current.packageJson.version !== expectedVersion) fail("Ephemeral Outfits version fields must match the requested version.")
+  const restored = structuredClone(current)
+  restored.manifest.version = headVersion
+  restored.input.identity.version = headVersion
+  restored.packageJson.version = headVersion
+  if (canonical(restored.manifest) !== canonical(head.manifest)
+      || canonical(restored.input) !== canonical(head.input)
+      || canonical(restored.packageJson) !== canonical(head.packageJson)) fail("Outfits checkout contains changes beyond the exact release version fields.")
+}
+
+function cleanOutfitsGit(root, input, manifest, packageJson) {
+  const status = git(root, "status", "--porcelain=v1", "--untracked-files=all")
+  if (!status) return
+  const expectedPaths = ["plugin.json", "release/producer-input.v1.json", "web/package.json"]
+  const entries = status.split(/\r?\n/)
+  if (entries.length !== expectedPaths.length
+      || entries.some((entry) => !entry.startsWith(" M "))
+      || entries.map((entry) => entry.slice(3)).sort().some((path, index) => path !== expectedPaths[index])) fail("Outfits checkout must be clean except for the exact workflow-owned version fields.")
+  const atHead = (path) => JSON.parse(git(root, "show", `HEAD:${path}`))
+  validateExactVersionOverride({
+    manifest: atHead("plugin.json"),
+    input: atHead("release/producer-input.v1.json"),
+    packageJson: atHead("web/package.json"),
+  }, { manifest, input, packageJson }, input.identity.version)
+}
+
 export function validateInput(input, manifest, packageJson) {
   exactKeys(input, INPUT_KEYS, "producer input")
   exactKeys(input.identity, ["id", "version"], "identity")
@@ -124,7 +154,7 @@ function collect(get) {
   const manifest = json(resolve(repository, "plugin.json"))
   const packageJson = json(resolve(repository, "web/package.json"))
   validateInput(input, manifest, packageJson)
-  cleanGit(repository, "Outfits")
+  cleanOutfitsGit(repository, input, manifest, packageJson)
   cleanGit(redbamboo, "RedBamboo")
   cleanGit(redleaf, "RedLeaf")
   const outfitsCommit = git(repository, "rev-parse", "HEAD")
