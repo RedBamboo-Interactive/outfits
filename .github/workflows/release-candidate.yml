@@ -226,7 +226,7 @@ jobs:
             outfits/artifacts/outfits-candidate.unsigned.json
             outfits/artifacts/outfits-signature-input.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
   bridge:
     name: Append unsigned Outfits bytes to rolling prerelease

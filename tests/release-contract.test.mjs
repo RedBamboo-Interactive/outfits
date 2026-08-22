@@ -181,7 +181,7 @@ test("unsigned handoff is retained for the bridge without additional release mac
   const bridge = workflow.indexOf("\n  bridge:")
   assert.ok(upload > 0 && bridge > upload)
   for (const path of ["outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg", "outfits/artifacts/outfits-candidate.unsigned.json", "outfits/artifacts/outfits-signature-input.json"]) assert.match(workflow, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
-  assert.match(workflow, /retention-days: 14/)
+  assert.match(workflow, /retention-days: 1/)
   assert.match(workflow, /actions\/download-artifact@[a-f0-9]{40}/)
   assert.match(workflow, /name: outfits-\$\{\{ needs\.candidate\.outputs\.version \}\}-\$\{\{ github\.workflow_sha \}\}-unsigned-release-inputs/)
   assert.doesNotMatch([readText("scripts/release/metadata.mjs"), workflow].join("\n"), /treeId|subtree|fileInventory|payloadSha256|signatureDomain|cyclonedx|private key|registry snapshot|channel pointer|feed-publish|pointer-prepare/i)
