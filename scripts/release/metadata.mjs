@@ -21,7 +21,7 @@ function canonical(value) {
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", windowsHide: true })
   if (result.error || result.status !== 0) fail((result.stderr || result.stdout || result.error?.message || `${command} failed`).trim())
-  return result.stdout.trim()
+  return result.stdout.trimEnd()
 }
 function git(root, ...args) { return run("git", ["-C", root, ...args]) }
 function detectPnpmVersion() {
