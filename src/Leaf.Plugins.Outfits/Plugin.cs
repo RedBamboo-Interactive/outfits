@@ -99,7 +99,7 @@ public sealed class OutfitsPlugin : ILeafPlugin
         if (prompt is null) return null;
         var migrated = prompt.Replace(LegacyApiPath, ApiPath, StringComparison.Ordinal);
         migrated = Regex.Replace(migrated,
-            @"(?m)^\s*curl -s -o outfit\.png -X POST http://localhost:18800/image-gen/generate[^\r\n]*$",
+            @"(?m)^\s*curl -s -o outfit\.png -X POST http://localhost:18800/image-gen/generate[^\r\n]*(?=\r?$)",
             EntityGenerateCommand);
         migrated = AddExecutionIdentity(migrated,
             "http://127.0.0.1:18804/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate");
@@ -172,7 +172,7 @@ public sealed class OutfitsPlugin : ILeafPlugin
     {
         if (instructions is null) return null;
         var migrated = Regex.Replace(instructions,
-            @"(?m)^- \*\*Generate image\*\*: `POST http://127\.0\.0\.1:18800/image-gen/generate`[^\r\n]*$",
+            @"(?m)^- \*\*Generate image\*\*: `POST http://127\.0\.0\.1:18800/image-gen/generate`[^\r\n]*(?=\r?$)",
             "- **Generate image**: `POST http://127.0.0.1:18804/api/apps/provider-comfyui/workflows/nova_outfit_zturbo/generate` - `{wait: true, inputs: {prompt, width: 1024, height: 1024, steps: 12, cfg: 1.3}}`. Send `Authorization: Bearer $REDLEAF_EXECUTION_TOKEN` on every mutating RedLeaf request so the parent session's signed identity is preserved. The provider resolves and validates the versioned workflow entity, submits a frozen snapshot to RedCompute, and returns the image when `wait` is true.");
         if (migrated.Contains("/api/apps/provider-comfyui/workflows/", StringComparison.Ordinal)
             && !migrated.Contains("REDLEAF_EXECUTION_TOKEN", StringComparison.Ordinal))
@@ -188,7 +188,7 @@ public sealed class OutfitsPlugin : ILeafPlugin
     private static string AddExecutionIdentity(string text, string endpoint)
     {
         return Regex.Replace(text,
-            $@"(?m)^(?<prefix>\s*curl[^\r\n]*?{Regex.Escape(endpoint)})(?<suffix>[^\r\n]*)$",
+            $@"(?m)^(?<prefix>\s*curl[^\r\n]*?{Regex.Escape(endpoint)})(?<suffix>[^\r\n]*)(?=\r?$)",
             match => match.Value.Contains("REDLEAF_EXECUTION_TOKEN", StringComparison.Ordinal)
                 ? match.Value
                 : $"{match.Groups["prefix"].Value} {ExecutionAuthHeader}{match.Groups["suffix"].Value}");
