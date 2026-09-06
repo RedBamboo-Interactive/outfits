@@ -18,7 +18,7 @@ test("cross-repository bridge retains the scoped producer token", () => {
   assert.match(workflow, /GH_TOKEN: \$\{\{ secrets\.CROSS_REPO_TOKEN \|\| github\.token \}\}/)
   assert.doesNotMatch(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/)
 })
-const centralRedLeafCommit = "4bf0894014b392e60cf0b5c6ca85920428ba7516"
+const centralRedLeafCommit = "2e943a9a7e813732f31558338d7b54238100ebb9"
 const validProducer = () => structuredClone(producer)
 
 test("automated version overrides can change only the three version fields", () => {
@@ -140,6 +140,7 @@ test("workflow pins actions, checks the immutable workflow revision, and invokes
   const toolRestore = workflow.indexOf("dotnet restore ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --locked-mode --nologo")
   const toolBuild = workflow.indexOf("dotnet build ../redleaf/tools/RedLeaf.ReleaseTool/RedLeaf.ReleaseTool.csproj --configuration Release --no-restore --nologo")
   const packer = workflow.indexOf("../redleaf/scripts/build-leafpkg-release.ps1")
+  assert.match(workflow, /-AllowEphemeralVersionOverride/)
   const candidateDll = workflow.indexOf("../redleaf/tools/RedLeaf.ReleaseTool/bin/Release/net9.0/RedLeaf.ReleaseTool.dll")
   assert.ok(toolRestore >= 0 && toolBuild > toolRestore)
   assert.ok(packer > toolBuild && candidateDll > toolBuild)

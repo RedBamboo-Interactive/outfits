@@ -184,6 +184,7 @@ jobs:
             -PluginDir . `
             -Metadata ./artifacts/outfits-release-metadata.v1.json `
             -OutputDir ./artifacts `
+            -AllowEphemeralVersionOverride `
             -BackendProject ./src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj `
             -FrontendDir ./web `
             -Lock @(

@@ -67,7 +67,7 @@ The developer packer remains `./build-leafpkg.ps1`. Release CI builds one
 channel-neutral `.leafpkg` and hands its verified unsigned candidate to the
 suite publication flow; it does not sign, publish, or choose a channel here.
 The release producer pins both RedLeaf's ReleaseTool and the `Leaf.Sdk` source
-to audited commit `4bf0894014b392e60cf0b5c6ca85920428ba7516`.
+to audited commit `2e943a9a7e813732f31558338d7b54238100ebb9`.
 
 ## Rules that will save you a debugging afternoon
 
