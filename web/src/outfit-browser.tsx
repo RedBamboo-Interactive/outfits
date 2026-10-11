@@ -153,7 +153,7 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
         data-modal="outfit-browser"
         aria-label="Browse outfits"
         motion="composed"
-        className="overflow-hidden sm:!max-w-2xl"
+        className="overflow-hidden sm:!max-w-3xl"
       >
         <DialogHeader>
           <div className="flex items-center gap-3">

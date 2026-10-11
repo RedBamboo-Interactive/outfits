@@ -73,7 +73,7 @@ test("outfit browser uses the shared composed dialog language", () => {
   assert.match(browser, /<DialogTitle>Outfits<\/DialogTitle>/)
   assert.match(browser, /<DialogDescription>/)
   assert.match(browser, /bg-primary-a10/)
-  assert.match(browser, /sm:!max-w-2xl/)
+  assert.match(browser, /sm:!max-w-3xl/)
   assert.match(browser, /if \(!open\) return/)
   assert.doesNotMatch(browser, /ModalBase|ModalHeader|bg-black\/60/)
   assert.doesNotMatch(plugin, /createPortal/)
