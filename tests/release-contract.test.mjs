@@ -64,6 +64,23 @@ test("Outfits is an optional versioned backend and frontend extension", () => {
   assert.equal(producer.build.frontendDirectory, "web")
 })
 
+test("outfit browser uses the shared composed dialog language", () => {
+  const browser = readText("web/src/outfit-browser.tsx")
+  const plugin = readText("web/src/plugin.tsx")
+  assert.match(browser, /<Dialog open=\{open\} onOpenChange=/)
+  assert.match(browser, /<DialogContent[\s\S]*motion="composed"/)
+  assert.match(browser, /<DialogHeader>/)
+  assert.match(browser, /<DialogTitle>Outfits<\/DialogTitle>/)
+  assert.match(browser, /<DialogDescription>/)
+  assert.match(browser, /bg-primary-a10/)
+  assert.match(browser, /sm:!max-w-2xl/)
+  assert.match(browser, /if \(!open\) return/)
+  assert.doesNotMatch(browser, /ModalBase|ModalHeader|bg-black\/60/)
+  assert.doesNotMatch(plugin, /createPortal/)
+  assert.doesNotMatch(plugin, /\{open &&/)
+  assert.match(plugin, /<OutfitBrowser[\s\S]*open=\{open\}/)
+})
+
 test("generic extension inputs are only Leaf.Sdk, ui, utility, and normal locks", () => {
   const backend = readText(producer.build.backendProject)
   assert.deepEqual(producer.redleaf, {

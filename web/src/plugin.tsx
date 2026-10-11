@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { createPortal } from "react-dom"
 import type { LeafAppPlugin, LeafPluginExtensionProps } from "@redbamboo/utility"
 import { OutfitBrowser } from "./outfit-browser"
 
@@ -26,14 +25,12 @@ function OutfitAvatarAction({ context }: LeafPluginExtensionProps) {
           <i className={`ph-bold ph-t-shirt text-white/0 group-hover:text-white/70 group-focus-visible:text-white/70 transition-colors ${large ? "text-lg" : "text-xs"}`} />
         </span>
       </button>
-      {open && createPortal(
-        <OutfitBrowser
-          onClose={() => setOpen(false)}
-          discussionId={discussionId}
-          agentId={agentId}
-        />,
-        document.body,
-      )}
+      <OutfitBrowser
+        open={open}
+        onClose={() => setOpen(false)}
+        discussionId={discussionId}
+        agentId={agentId}
+      />
     </>
   )
 }

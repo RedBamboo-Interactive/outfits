@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ModalBase, ModalHeader } from "@redbamboo/ui"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@redbamboo/ui"
 import { apiFetch } from "@redbamboo/utility"
 
 interface OutfitEntry {
@@ -20,6 +26,7 @@ interface OutfitPage {
 }
 
 interface Props {
+  open: boolean
   onClose: () => void
   discussionId?: string | null
   agentId?: string | null
@@ -44,7 +51,7 @@ function relativeDate(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`
 }
 
-export function OutfitBrowser({ onClose, discussionId, agentId }: Props) {
+export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
   const [outfits, setOutfits] = useState<OutfitEntry[]>([])
   const [meta, setMeta] = useState<{ baseAvatarUrl: string; currentOverride: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,6 +71,7 @@ export function OutfitBrowser({ onClose, discussionId, agentId }: Props) {
   }, [agentId])
 
   useEffect(() => {
+    if (!open) return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -80,7 +88,7 @@ export function OutfitBrowser({ onClose, discussionId, agentId }: Props) {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [fetchPage])
+  }, [fetchPage, open])
 
   const loadMoreRef = useRef<() => void>(() => {})
   loadMoreRef.current = async () => {
@@ -140,111 +148,131 @@ export function OutfitBrowser({ onClose, discussionId, agentId }: Props) {
   const nsfwCount = outfits.filter((outfit) => outfit.nsfw).length
 
   return (
-    <ModalBase dataModal="outfit-browser" ariaLabel="Browse outfits" onClose={onClose} size="lg">
-      <ModalHeader
-        icon={<i className="ph-bold ph-t-shirt text-primary" />}
-        title={<span className="text-sm font-medium">Outfits</span>}
-        onClose={onClose}
-      />
-      <div className="px-6 pb-5">
-        {error && (
-          <div className="mb-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400" role="alert">
-            {error}
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
+      <DialogContent
+        data-modal="outfit-browser"
+        aria-label="Browse outfits"
+        motion="composed"
+        className="overflow-hidden sm:!max-w-2xl"
+      >
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary-a10">
+              <i className="ph-bold ph-t-shirt text-lg text-primary" />
+            </div>
+            <div>
+              <DialogTitle>Outfits</DialogTitle>
+              <DialogDescription>
+                {loading
+                  ? "Loading outfit history…"
+                  : `${outfits.length + 1} ${outfits.length === 0 ? "look" : "looks"} available`}
+              </DialogDescription>
+            </div>
           </div>
-        )}
-        {loading ? (
-          <div className="flex items-center justify-center py-8 text-text-muted text-sm">
-            <i className="ph-bold ph-spinner animate-spin mr-2" /> Loading...
-          </div>
-        ) : (
-          <>
-            {nsfwCount > 0 && (
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setShowNsfw((value) => !value)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                    showNsfw
-                      ? "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
-                      : "bg-overlay-6 text-text-muted hover:bg-overlay-10"
-                  }`}
-                >
-                  <i className={`ph-bold ${showNsfw ? "ph-eye" : "ph-eye-slash"} text-[10px]`} />
-                  Show NSFW
-                  <span className="text-[10px] opacity-60">({nsfwCount})</span>
-                </button>
-              </div>
-            )}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              <button
-                type="button"
-                onClick={() => selectOutfit(null)}
-                className={`group relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all ${
-                  baseActive ? "border-primary ring-2 ring-primary/30" : "border-overlay-6 hover:border-overlay-10"
-                }`}
-              >
-                <img
-                  src={meta?.baseAvatarUrl ?? "/nova-avatar.png"}
-                  alt="Base avatar"
-                  className="w-full h-full object-cover object-top"
-                  loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                  <span className="text-[10px] text-white font-medium">Base</span>
-                </div>
-                {selecting === "__base__" && <SpinnerOverlay />}
-                {baseActive && <ActiveBadge />}
-              </button>
-
-              {filtered.map((outfit) => (
-                <button
-                  type="button"
-                  key={outfit.id}
-                  onClick={() => selectOutfit(outfit)}
-                  className={`group relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all ${
-                    outfit.active ? "border-primary ring-2 ring-primary/30" : "border-overlay-6 hover:border-overlay-10"
-                  }`}
-                  title={outfit.prompt ?? undefined}
-                >
-                  <img
-                    src={assetSrc(outfit.url)}
-                    alt={outfit.name ?? "Outfit"}
-                    className="w-full h-full object-cover object-top"
-                    loading="lazy"
-                    onError={(event) => { event.currentTarget.src = "/nova-avatar.png" }}
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <div className="text-[10px] text-white font-medium truncate">{outfit.name ?? "Outfit"}</div>
-                    <div className="text-[9px] text-white/60">{relativeDate(outfit.date)}</div>
-                  </div>
-                  {outfit.nsfw && (
-                    <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-rose-500/80 text-[8px] text-white font-bold">
-                      NSFW
-                    </div>
-                  )}
-                  {selecting === outfit.id && <SpinnerOverlay />}
-                  {outfit.active && <ActiveBadge />}
-                </button>
-              ))}
-
-              {filtered.length === 0 && (
-                <div className="col-span-2 sm:col-span-3 flex items-center justify-center py-8 text-text-muted text-xs">
-                  {nsfwCount > 0 && !showNsfw
-                    ? "All outfits are NSFW. Toggle the filter to see them."
-                    : "No outfit changes yet."}
+        </DialogHeader>
+        <div className="-mx-5 -mb-5 min-h-0 overflow-y-auto border-t border-foreground-a10 px-5 pb-5 pt-4">
+          {error && (
+            <div className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400" role="alert">
+              {error}
+            </div>
+          )}
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-text-muted text-sm">
+              <i className="ph-bold ph-spinner animate-spin mr-2" /> Loading...
+            </div>
+          ) : (
+            <>
+              {nsfwCount > 0 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNsfw((value) => !value)}
+                    aria-pressed={showNsfw}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring ${
+                      showNsfw
+                        ? "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
+                        : "bg-overlay-6 text-text-muted hover:bg-overlay-10"
+                    }`}
+                  >
+                    <i className={`ph-bold ${showNsfw ? "ph-eye" : "ph-eye-slash"} text-[10px]`} />
+                    Show NSFW
+                    <span className="text-[10px] opacity-60">({nsfwCount})</span>
+                  </button>
                 </div>
               )}
-            </div>
-            <div ref={sentinelRef} className="h-px" />
-            {loadingMore && (
-              <div className="flex items-center justify-center py-4 text-text-muted text-sm">
-                <i className="ph-bold ph-spinner animate-spin mr-2" /> Loading more...
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => selectOutfit(null)}
+                  aria-pressed={baseActive}
+                  className={`group relative aspect-[3/4] overflow-hidden rounded-xl outline-none transition-[transform,box-shadow] hover:scale-[1.015] focus-visible:ring-1 focus-visible:ring-ring ${
+                    baseActive ? "ring-2 ring-primary" : ""
+                  }`}
+                >
+                  <img
+                    src={meta?.baseAvatarUrl ?? "/nova-avatar.png"}
+                    alt="Base avatar"
+                    className="w-full h-full object-cover object-top"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <span className="text-[10px] text-white font-medium">Base</span>
+                  </div>
+                  {selecting === "__base__" && <SpinnerOverlay />}
+                  {baseActive && <ActiveBadge />}
+                </button>
+
+                {filtered.map((outfit) => (
+                  <button
+                    type="button"
+                    key={outfit.id}
+                    onClick={() => selectOutfit(outfit)}
+                    aria-pressed={outfit.active}
+                    className={`group relative aspect-[3/4] overflow-hidden rounded-xl outline-none transition-[transform,box-shadow] hover:scale-[1.015] focus-visible:ring-1 focus-visible:ring-ring ${
+                      outfit.active ? "ring-2 ring-primary" : ""
+                    }`}
+                    title={outfit.prompt ?? undefined}
+                  >
+                    <img
+                      src={assetSrc(outfit.url)}
+                      alt={outfit.name ?? "Outfit"}
+                      className="w-full h-full object-cover object-top"
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.src = "/nova-avatar.png" }}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                      <div className="text-[10px] text-white font-medium truncate">{outfit.name ?? "Outfit"}</div>
+                      <div className="text-[9px] text-white/60">{relativeDate(outfit.date)}</div>
+                    </div>
+                    {outfit.nsfw && (
+                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-rose-500/80 text-[8px] text-white font-bold">
+                        NSFW
+                      </div>
+                    )}
+                    {selecting === outfit.id && <SpinnerOverlay />}
+                    {outfit.active && <ActiveBadge />}
+                  </button>
+                ))}
+
+                {filtered.length === 0 && (
+                  <div className="col-span-2 sm:col-span-3 flex items-center justify-center py-8 text-text-muted text-xs">
+                    {nsfwCount > 0 && !showNsfw
+                      ? "All outfits are NSFW. Toggle the filter to see them."
+                      : "No outfit changes yet."}
+                  </div>
+                )}
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </ModalBase>
+              <div ref={sentinelRef} className="h-px" />
+              {loadingMore && (
+                <div className="flex items-center justify-center py-4 text-text-muted text-sm">
+                  <i className="ph-bold ph-spinner animate-spin mr-2" /> Loading more...
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
