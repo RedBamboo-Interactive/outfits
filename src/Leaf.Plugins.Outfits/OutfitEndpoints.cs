@@ -69,7 +69,7 @@ internal static class OutfitEndpoints
             var data = new JsonObject
             {
                 ["agent"] = agent.Id.ToString(),
-                ["asset"] = OutfitData.String(body, "url"),
+                ["asset"] = OutfitData.AssetUrl(OutfitData.String(body, "url")),
                 ["prompt"] = OutfitData.String(body, "prompt"),
                 ["nsfw"] = OutfitData.Boolean(body, "nsfw"),
             };
@@ -266,15 +266,27 @@ internal static class OutfitData
 
     public static string BaseAvatarUrl(JsonObject data)
     {
-        if (String(data, "avatar") is { } avatar) return AssetUrl(avatar);
+        if (String(data, "avatar") is { } avatar) return AssetUrl(avatar)!;
         if (data["avatar"] is JsonObject objectAvatar)
         {
-            if (String(objectAvatar, "filename") is { } filename) return AssetUrl(filename);
-            if (String(objectAvatar, "url") is { } url) return AssetUrl(url);
+            if (String(objectAvatar, "filename") is { } filename) return AssetUrl(filename)!;
+            if (String(objectAvatar, "url") is { } url) return AssetUrl(url)!;
         }
         return "/nova-avatar.png";
     }
 
-    private static string AssetUrl(string value)
-        => value.StartsWith('/') || value.Contains("://") ? value : $"/api/assets/{value}";
+    public static string? AssetUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.StartsWith('/')) return value;
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.IsLoopback
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            && uri.AbsolutePath.StartsWith("/api/assets/", StringComparison.Ordinal))
+            return uri.PathAndQuery + uri.Fragment;
+
+        return value.Contains("://", StringComparison.Ordinal)
+            ? value
+            : $"/api/assets/{value}";
+    }
 }

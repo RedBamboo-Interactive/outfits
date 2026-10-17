@@ -125,4 +125,16 @@ public sealed class OutfitsPluginTests
         Assert.DoesNotContain("Interactive provenance", migrated);
         Assert.Contains("## Prompt structure", migrated);
     }
+
+    [Theory]
+    [InlineData("http://127.0.0.1:18804/api/assets/image.png", "/api/assets/image.png")]
+    [InlineData("https://localhost:18804/api/assets/image.png?version=2", "/api/assets/image.png?version=2")]
+    [InlineData("http://[::1]:18804/api/assets/image.png#preview", "/api/assets/image.png#preview")]
+    [InlineData("/api/assets/image.png", "/api/assets/image.png")]
+    [InlineData("image.png", "/api/assets/image.png")]
+    [InlineData("https://assets.example.com/api/assets/image.png", "https://assets.example.com/api/assets/image.png")]
+    public void AssetUrl_PersistsSameInstallationAssetsAsOriginRelative(string input, string expected)
+    {
+        Assert.Equal(expected, OutfitData.AssetUrl(input));
+    }
 }

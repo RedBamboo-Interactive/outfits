@@ -64,6 +64,13 @@ test("Outfits is an optional versioned backend and frontend extension", () => {
   assert.equal(producer.build.frontendDirectory, "web")
 })
 
+test("outfit asset is a runtime field for isolated URL migrations", () => {
+  const entityTypes = readJson("seeds/entity-types.json")
+  const outfit = entityTypes.find((entityType) => entityType.slug === "outfit")
+  assert.ok(outfit)
+  assert.deepEqual(outfit.data.runtime_fields, ["asset"])
+})
+
 test("outfit browser uses the shared composed dialog language", () => {
   const browser = readText("web/src/outfit-browser.tsx")
   const plugin = readText("web/src/plugin.tsx")
