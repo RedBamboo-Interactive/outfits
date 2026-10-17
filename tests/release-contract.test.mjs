@@ -218,6 +218,9 @@ test("package boundary permits only immutable extension payload and evidence", (
 
 test("unsigned handoff uses the quota-independent exact-cache bridge", () => {
   const workflow = readText(".github/workflows/release-candidate.yml")
+  assert.equal((workflow.match(/runs-on: windows-2025/g) ?? []).length, 1)
+  assert.equal((workflow.match(/runs-on: ubuntu-24\.04/g) ?? []).length, 1)
+  assert.equal((workflow.match(/enableCrossOsArchive: true/g) ?? []).length, 2)
   const save = workflow.indexOf("actions/cache/save@")
   const bridge = workflow.indexOf("\n  bridge:")
   assert.ok(save > 0 && bridge > save)

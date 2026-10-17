@@ -272,6 +272,7 @@ jobs:
             outfits/artifacts/outfits-candidate.unsigned.json
             outfits/artifacts/outfits-signature-input.json
           key: outfits-${{ steps.pins.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-${{ github.run_id }}-${{ github.run_attempt }}-unsigned-release-inputs
+          enableCrossOsArchive: true
 
   bridge:
     name: Append unsigned Outfits bytes to rolling prerelease
@@ -279,7 +280,7 @@ jobs:
     concurrency:
       group: outfits-unsigned-candidate-bridge
       cancel-in-progress: false
-    runs-on: windows-2025
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       actions: read
@@ -297,6 +298,7 @@ jobs:
             outfits/artifacts/outfits-signature-input.json
           key: outfits-${{ needs.candidate.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-${{ github.run_id }}-${{ github.run_attempt }}-unsigned-release-inputs
           fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Prepare candidate-ID-derived bridge assets
         shell: pwsh
