@@ -91,7 +91,7 @@ test("generic extension inputs are only Leaf.Sdk, ui, utility, and normal locks"
   assert.match(backend, /PackageReference Include="Leaf\.Sdk"/)
   assert.match(backend, /<RestorePackagesWithLockFile>true<\/RestorePackagesWithLockFile>/)
   assert.doesNotMatch(backend, /AppHost/)
-  assert.equal(producer.redbamboo.commit, "0ddcd7fea92913411fe58454c4968558ad596611")
+  assert.equal(producer.redbamboo.commit, "5c238b3dff413a5448285ba4aa65e66a4dce634a")
   assert.deepEqual(producer.redbamboo.inputs.map(({ id, name, sourcePath }) => ({ id, name, sourcePath })), [
     { id: "redbamboo-ui", name: "@redbamboo/ui", sourcePath: "packages/ui" },
     { id: "redbamboo-utility", name: "@redbamboo/utility", sourcePath: "packages/utility" },
