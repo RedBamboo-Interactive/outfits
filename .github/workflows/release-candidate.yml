@@ -150,15 +150,20 @@ jobs:
         shell: pwsh
         run: |
           corepack pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Shared package frozen restore failed.' }
           corepack pnpm --filter @redbamboo/ui --filter @redbamboo/utility build
+          if ($LASTEXITCODE -ne 0) { throw 'Shared package build failed.' }
 
       - name: Frozen frontend restore, typecheck, and build
         working-directory: outfits/web
         shell: pwsh
         run: |
           corepack pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Outfits frontend frozen restore failed.' }
           corepack pnpm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'Outfits frontend typecheck failed.' }
           corepack pnpm run build:pkg
+          if ($LASTEXITCODE -ne 0) { throw 'Outfits frontend build failed.' }
           if (-not (Test-Path -LiteralPath 'dist/plugin.js')) { throw 'build:pkg did not produce web/dist/plugin.js.' }
 
       - name: Generate exact channel-neutral metadata
@@ -257,18 +262,16 @@ jobs:
           $candidate = Get-Content -LiteralPath artifacts/outfits-candidate.unsigned.json -Raw | ConvertFrom-Json
           if ([string]$candidate.artifact.url -cne $artifactUrl) { throw 'Candidate artifact URL drifted from the canonical producer URL.' }
 
-      - name: Upload immutable unsigned handoff only
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - name: Cache exact candidate inputs for the write-isolated bridge
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          name: outfits-${{ steps.pins.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-unsigned-release-inputs
           path: |
             outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg
             outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.component-input.v1.json
             outfits/artifacts/outfits-release-metadata.v1.json
             outfits/artifacts/outfits-candidate.unsigned.json
             outfits/artifacts/outfits-signature-input.json
-          if-no-files-found: error
-          retention-days: 1
+          key: outfits-${{ steps.pins.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-${{ github.run_id }}-${{ github.run_attempt }}-unsigned-release-inputs
 
   bridge:
     name: Append unsigned Outfits bytes to rolling prerelease
@@ -283,16 +286,22 @@ jobs:
       contents: write
 
     steps:
-      - name: Download exact unsigned candidate inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - name: Restore exact unsigned candidate inputs
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          name: outfits-${{ needs.candidate.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-unsigned-release-inputs
-          path: bridge-input
+          path: |
+            outfits/artifacts/outfits-${{ needs.candidate.outputs.version }}.leafpkg
+            outfits/artifacts/outfits-${{ needs.candidate.outputs.version }}.component-input.v1.json
+            outfits/artifacts/outfits-release-metadata.v1.json
+            outfits/artifacts/outfits-candidate.unsigned.json
+            outfits/artifacts/outfits-signature-input.json
+          key: outfits-${{ needs.candidate.outputs.version }}-${{ inputs.source_commit || github.workflow_sha }}-${{ github.run_id }}-${{ github.run_attempt }}-unsigned-release-inputs
+          fail-on-cache-miss: true
 
       - name: Prepare candidate-ID-derived bridge assets
         shell: pwsh
         run: |
-          $descriptor = @(Get-ChildItem bridge-input -Recurse -File -Filter outfits-candidate.unsigned.json)
+          $descriptor = @(Get-ChildItem outfits/artifacts -Recurse -File -Filter outfits-candidate.unsigned.json)
           if ($descriptor.Count -ne 1) { throw 'Expected exactly one unsigned Outfits candidate descriptor.' }
           $candidate = Get-Content -LiteralPath $descriptor[0].FullName -Raw | ConvertFrom-Json
           if ($candidate.status -cne 'unsigned' -or $null -ne $candidate.artifact.signature) {
@@ -300,7 +309,7 @@ jobs:
           }
           $candidateId = [string]$candidate.candidateId
           if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$') { throw 'Candidate ID is not a safe asset-name token.' }
-          $matchingArtifacts = @(Get-ChildItem bridge-input -Recurse -File | Where-Object {
+          $matchingArtifacts = @(Get-ChildItem outfits/artifacts -Recurse -File | Where-Object {
             $_.Length -eq [long]$candidate.artifact.sizeBytes -and
             (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ceq [string]$candidate.artifact.sha256
           })

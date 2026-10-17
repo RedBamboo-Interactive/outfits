@@ -91,6 +91,7 @@ test("generic extension inputs are only Leaf.Sdk, ui, utility, and normal locks"
   assert.match(backend, /PackageReference Include="Leaf\.Sdk"/)
   assert.match(backend, /<RestorePackagesWithLockFile>true<\/RestorePackagesWithLockFile>/)
   assert.doesNotMatch(backend, /AppHost/)
+  assert.equal(producer.redbamboo.commit, "fcddc824caa6e7caa772dcfe66308d3d6c02ea3a")
   assert.deepEqual(producer.redbamboo.inputs.map(({ id, name, sourcePath }) => ({ id, name, sourcePath })), [
     { id: "redbamboo-ui", name: "@redbamboo/ui", sourcePath: "packages/ui" },
     { id: "redbamboo-utility", name: "@redbamboo/utility", sourcePath: "packages/utility" },
@@ -215,14 +216,18 @@ test("package boundary permits only immutable extension payload and evidence", (
   assert.doesNotMatch(workflow, /Invoke-RestMethod|Invoke-WebRequest|Start-Service|Restart-Service|id-token:\s*write/)
 })
 
-test("unsigned handoff is retained for the bridge without additional release machinery", () => {
+test("unsigned handoff uses the quota-independent exact-cache bridge", () => {
   const workflow = readText(".github/workflows/release-candidate.yml")
-  const upload = workflow.indexOf("actions/upload-artifact@")
+  const save = workflow.indexOf("actions/cache/save@")
   const bridge = workflow.indexOf("\n  bridge:")
-  assert.ok(upload > 0 && bridge > upload)
+  assert.ok(save > 0 && bridge > save)
   for (const path of ["outfits/artifacts/outfits-${{ steps.pins.outputs.version }}.leafpkg", "outfits/artifacts/outfits-candidate.unsigned.json", "outfits/artifacts/outfits-signature-input.json"]) assert.match(workflow, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
-  assert.match(workflow, /retention-days: 1/)
-  assert.match(workflow, /actions\/download-artifact@[a-f0-9]{40}/)
-  assert.match(workflow, /name: outfits-\$\{\{ needs\.candidate\.outputs\.version \}\}-\$\{\{ inputs\.source_commit \|\| github\.workflow_sha \}\}-unsigned-release-inputs/)
+  assert.match(workflow, /actions\/cache\/save@[a-f0-9]{40}/)
+  assert.match(workflow, /actions\/cache\/restore@[a-f0-9]{40}/)
+  assert.match(workflow, /fail-on-cache-miss: true/)
+  assert.doesNotMatch(workflow, /actions\/(?:upload|download)-artifact@/)
+  assert.match(workflow, /key: outfits-\$\{\{ needs\.candidate\.outputs\.version \}\}-\$\{\{ inputs\.source_commit \|\| github\.workflow_sha \}\}-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}-unsigned-release-inputs/)
+  assert.match(workflow, /\.Length -eq \[long\]\$candidate\.artifact\.sizeBytes/)
+  assert.match(workflow, /Get-FileHash -LiteralPath \$_\.FullName -Algorithm SHA256/)
   assert.doesNotMatch([readText("scripts/release/metadata.mjs"), workflow].join("\n"), /treeId|subtree|fileInventory|payloadSha256|signatureDomain|cyclonedx|private key|registry snapshot|channel pointer|feed-publish|pointer-prepare/i)
 })
