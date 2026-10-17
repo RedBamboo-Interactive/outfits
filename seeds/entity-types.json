@@ -7,7 +7,6 @@
       "icon": "ph-bold ph-t-shirt",
       "color": "rose",
       "versioning": false,
-      "runtime_fields": ["asset"],
       "description": "Agent avatar outfit with asset image, generation prompt, and selection history"
     }
   }
