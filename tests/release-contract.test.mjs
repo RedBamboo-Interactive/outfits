@@ -18,7 +18,7 @@ test("cross-repository bridge retains the scoped producer token", () => {
   assert.match(workflow, /GH_TOKEN: \$\{\{ secrets\.CROSS_REPO_TOKEN \|\| github\.token \}\}/)
   assert.doesNotMatch(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/)
 })
-const centralRedLeafCommit = "4604a11ea2cb299a45fb0da8aa86dd0726164d50"
+const centralRedLeafCommit = "21e6fd3914bd97e858f945ad8fec103c684496a9"
 const validProducer = () => structuredClone(producer)
 
 test("automated version overrides can change only the three version fields", () => {
@@ -91,7 +91,7 @@ test("generic extension inputs are only Leaf.Sdk, ui, utility, and normal locks"
   assert.match(backend, /PackageReference Include="Leaf\.Sdk"/)
   assert.match(backend, /<RestorePackagesWithLockFile>true<\/RestorePackagesWithLockFile>/)
   assert.doesNotMatch(backend, /AppHost/)
-  assert.equal(producer.redbamboo.commit, "5c238b3dff413a5448285ba4aa65e66a4dce634a")
+  assert.equal(producer.redbamboo.commit, "de5ec053440ebd6d4636e8287f493ce5e62a06f5")
   assert.deepEqual(producer.redbamboo.inputs.map(({ id, name, sourcePath }) => ({ id, name, sourcePath })), [
     { id: "redbamboo-ui", name: "@redbamboo/ui", sourcePath: "packages/ui" },
     { id: "redbamboo-utility", name: "@redbamboo/utility", sourcePath: "packages/utility" },

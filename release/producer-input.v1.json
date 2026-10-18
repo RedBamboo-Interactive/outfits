@@ -17,12 +17,12 @@
   },
   "redleaf": {
     "repository": "RedBamboo-Interactive/redleaf",
-    "commit": "4604a11ea2cb299a45fb0da8aa86dd0726164d50",
+    "commit": "21e6fd3914bd97e858f945ad8fec103c684496a9",
     "leafSdkPath": "src/Leaf.Sdk"
   },
   "redbamboo": {
     "repository": "RedBamboo-Interactive/redbamboo-packages",
-    "commit": "5c238b3dff413a5448285ba4aa65e66a4dce634a",
+    "commit": "de5ec053440ebd6d4636e8287f493ce5e62a06f5",
     "lockPath": "pnpm-lock.yaml",
     "inputs": [
       {
