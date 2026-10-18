@@ -18,7 +18,7 @@ test("cross-repository bridge retains the scoped producer token", () => {
   assert.match(workflow, /GH_TOKEN: \$\{\{ secrets\.CROSS_REPO_TOKEN \|\| github\.token \}\}/)
   assert.doesNotMatch(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/)
 })
-const centralRedLeafCommit = "21e6fd3914bd97e858f945ad8fec103c684496a9"
+const centralRedLeafCommit = "21e6fd393196fbe2179293ff3f05cb3501ebeaed"
 const validProducer = () => structuredClone(producer)
 
 test("automated version overrides can change only the three version fields", () => {
