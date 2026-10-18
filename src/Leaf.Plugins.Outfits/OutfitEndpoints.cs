@@ -26,13 +26,11 @@ internal static class OutfitEndpoints
             var offset = ParseInt(ctx, "offset", 0, 0, int.MaxValue);
             var agentId = agent.Id.ToString();
             var current = OutfitData.String(agent.Data, "outfit");
-            var items = await entities.QueryAsync(new EntityQuery
-            {
-                TypeSlug = "outfit",
-                DataEquals = new Dictionary<string, object?> { ["agent"] = agentId },
-                Limit = limit + 1,
-                Offset = offset,
-            }, ct);
+            // The entity store orders by last modification. Any patch to an old outfit
+            // (nsfw flag, asset URL repair) would float it above newer ones, so the
+            // history is ordered here by creation instead.
+            var all = await LoadAgentOutfitsAsync(entities, agentId, ct);
+            var items = OrderNewestFirst(all).Skip(offset).Take(limit + 1).ToList();
 
             var outfits = items.Take(limit).Select(outfit => (object)new
             {
@@ -218,6 +216,31 @@ internal static class OutfitEndpoints
             // Avatar selection is authoritative. The LIVE note is best-effort.
         }
     }
+
+    private static async Task<List<LeafEntity>> LoadAgentOutfitsAsync(
+        IEntityStore entities, string agentId, CancellationToken ct)
+    {
+        const int pageSize = 500;
+        var all = new List<LeafEntity>();
+        Guid? afterId = null;
+        while (true)
+        {
+            var page = await entities.QueryAsync(new EntityQuery
+            {
+                TypeSlug = "outfit",
+                DataEquals = new Dictionary<string, object?> { ["agent"] = agentId },
+                OrderById = true,
+                AfterId = afterId,
+                Limit = pageSize,
+            }, ct);
+            all.AddRange(page);
+            if (page.Count < pageSize) return all;
+            afterId = page[^1].Id;
+        }
+    }
+
+    internal static IEnumerable<LeafEntity> OrderNewestFirst(IEnumerable<LeafEntity> outfits)
+        => outfits.OrderByDescending(outfit => outfit.CreatedAt).ThenByDescending(outfit => outfit.Id);
 
     private static async Task<JsonObject?> ReadBodyAsync(HttpContext ctx, CancellationToken ct)
     {

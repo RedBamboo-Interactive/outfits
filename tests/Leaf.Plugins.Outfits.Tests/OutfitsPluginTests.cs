@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Leaf.Plugins.Outfits;
+using Leaf.Sdk;
 using Xunit;
 
 namespace Leaf.Plugins.Outfits.Tests;
@@ -20,6 +21,20 @@ public sealed class OutfitsPluginTests
         Assert.Equal("avatar-action", extension.Id);
         Assert.Equal("nova", extension.Target);
         Assert.Equal("chat-avatar-overlay", extension.Slot);
+    }
+
+    [Fact]
+    public void OrderNewestFirst_IgnoresLaterEditsToOlderOutfits()
+    {
+        var june = new DateTimeOffset(2026, 6, 28, 7, 0, 0, TimeSpan.Zero);
+        var october = new DateTimeOffset(2026, 10, 17, 22, 0, 0, TimeSpan.Zero);
+        var repairedYesterday = october.AddMinutes(30);
+        var old = new LeafEntity(Guid.NewGuid(), "outfit", "old", "Sunday copper", new JsonObject(), june, repairedYesterday, null);
+        var recent = new LeafEntity(Guid.NewGuid(), "outfit", "recent", "Midnight in his hoodie", new JsonObject(), october, october, null);
+
+        var ordered = OutfitEndpoints.OrderNewestFirst([old, recent]).Select(outfit => outfit.Name);
+
+        Assert.Equal(["Midnight in his hoodie", "Sunday copper"], ordered);
     }
 
     [Fact]
