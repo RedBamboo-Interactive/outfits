@@ -50,6 +50,10 @@ internal static class OutfitEndpoints
                 currentOverride = current,
                 outfits,
                 hasMore = items.Count > limit,
+                // Whole-history counts, so the gallery can label and filter
+                // correctly before every page has been scrolled in.
+                total = all.Count,
+                nsfwCount = all.Count(outfit => OutfitData.Boolean(outfit.Data, "nsfw")),
             });
         });
 
@@ -264,6 +268,8 @@ internal static class OutfitEndpoints
         currentOverride = (string?)null,
         outfits = Array.Empty<object>(),
         hasMore = false,
+        total = 0,
+        nsfwCount = 0,
     };
 }
 

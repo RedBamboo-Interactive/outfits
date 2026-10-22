@@ -23,6 +23,8 @@ interface OutfitPage {
   currentOverride: string | null
   outfits: OutfitEntry[]
   hasMore: boolean
+  total: number
+  nsfwCount: number
 }
 
 interface Props {
@@ -53,7 +55,12 @@ function relativeDate(iso: string | null): string {
 
 export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
   const [outfits, setOutfits] = useState<OutfitEntry[]>([])
-  const [meta, setMeta] = useState<{ baseAvatarUrl: string; currentOverride: string | null } | null>(null)
+  const [meta, setMeta] = useState<{
+    baseAvatarUrl: string
+    currentOverride: string | null
+    total: number
+    nsfwCount: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
@@ -80,7 +87,12 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
     fetchPage(0)
       .then((result) => {
         if (cancelled) return
-        setMeta({ baseAvatarUrl: result.baseAvatarUrl, currentOverride: result.currentOverride })
+        setMeta({
+          baseAvatarUrl: result.baseAvatarUrl,
+          currentOverride: result.currentOverride,
+          total: result.total,
+          nsfwCount: result.nsfwCount,
+        })
         setOutfits(result.outfits)
         setHasMore(result.hasMore)
         offsetRef.current = result.outfits.length
@@ -148,7 +160,9 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
 
   const baseActive = meta !== null && !outfits.some((outfit) => outfit.active)
   const filtered = outfits.filter((outfit) => outfit.active || showNsfw || !outfit.nsfw)
-  const nsfwCount = outfits.filter((outfit) => outfit.nsfw).length
+  // Counts cover the whole history, not just the pages scrolled in so far.
+  const total = meta?.total ?? outfits.length
+  const nsfwCount = meta?.nsfwCount ?? outfits.filter((outfit) => outfit.nsfw).length
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
@@ -168,7 +182,7 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
               <DialogDescription>
                 {loading
                   ? "Loading outfit history…"
-                  : `${outfits.length + 1} ${outfits.length === 0 ? "look" : "looks"} available`}
+                  : `${total + 1} ${total === 0 ? "look" : "looks"} available`}
               </DialogDescription>
             </div>
           </div>
