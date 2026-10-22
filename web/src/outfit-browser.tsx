@@ -60,7 +60,9 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
   const [selecting, setSelecting] = useState<string | null>(null)
   const [showNsfw, setShowNsfw] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  // State, not a ref: the sentinel unmounts while loading and on every close,
+  // so the observer must follow the element itself, not just hasMore.
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null)
   const offsetRef = useRef(0)
   const loadingMoreRef = useRef(false)
 
@@ -108,16 +110,17 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
     }
   }
 
+  // Re-observing after each page re-reports the current intersection, so a
+  // sentinel that is still visible (short page, NSFW filtered out) keeps loading.
   useEffect(() => {
-    const element = sentinelRef.current
-    if (!element || !hasMore) return
+    if (!sentinel || !hasMore) return
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) loadMoreRef.current() },
       { rootMargin: "200px" },
     )
-    observer.observe(element)
+    observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore])
+  }, [sentinel, hasMore, outfits.length])
 
   async function selectOutfit(outfit: OutfitEntry | null) {
     const key = outfit?.id ?? "__base__"
@@ -262,7 +265,7 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
                   </div>
                 )}
               </div>
-              <div ref={sentinelRef} className="h-px" />
+              <div ref={setSentinel} className="h-px" />
               {loadingMore && (
                 <div className="flex items-center justify-center py-4 text-text-muted text-sm">
                   <i className="ph-bold ph-spinner animate-spin mr-2" /> Loading more...
