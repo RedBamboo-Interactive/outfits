@@ -46,8 +46,7 @@
     },
     "new-look": {
       "title": "Créer un tout nouveau look",
-      "story": "Une soirée pluvieuse en perspective ? Demande à ton Agent de créer une tenue assortie. Elle est faite avec ComfyUI et gardée pour que tu puisses la remettre plus tard.",
-      "try": "Nova, crée une nouvelle tenue pour une soirée pluvieuse et ajoute-la à ta garde-robe."
+      "story": "Une soirée pluvieuse en perspective ? Demande à ton Agent de créer une tenue assortie. Elle est faite avec ComfyUI et gardée pour que tu puisses la remettre plus tard."
     },
     "back-to-base": {
       "title": "Revenir à l'original",

@@ -12,7 +12,9 @@
     "Four ready-made ComfyUI picture recipes your Agent can use to make new looks."
   ],
   "runsWhere": "local",
-  "cost": { "kind": "free" },
+  "cost": {
+    "kind": "free"
+  },
   "privacy": "Looks are stored on this PC with the rest of your Leaf data. Outfits sends nothing anywhere; new pictures are made by your own ComfyUI.",
   "requirements": [
     {
@@ -41,7 +43,10 @@
       "id": "open-picker",
       "title": "Open the picker",
       "body": "In a Nova chat, hover your Agent's avatar: a T-shirt icon appears. Click it to open the Outfits window.",
-      "action": { "kind": "open-app", "route": "/apps/nova" }
+      "action": {
+        "kind": "open-app",
+        "route": "/apps/nova"
+      }
     },
     {
       "id": "choose",
@@ -65,8 +70,7 @@
     {
       "id": "new-look",
       "title": "Create a brand new look",
-      "story": "Going out on a rainy evening? Ask your Agent to design a matching outfit. It is made with ComfyUI and saved so you can wear it again later.",
-      "try": "Nova, create a new outfit for a rainy evening and save it to your wardrobe."
+      "story": "Going out on a rainy evening? Ask your Agent to design a matching outfit. It is made with ComfyUI and saved so you can wear it again later."
     },
     {
       "id": "back-to-base",
