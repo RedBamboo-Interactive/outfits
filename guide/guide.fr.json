@@ -1,0 +1,77 @@
+{
+  "schema": "leaf.extension-guide-locale/1",
+  "lang": "fr",
+  "tagline": "Parcours les looks portés par ton Agent et change son avatar en un clic, ou reviens à l'original.",
+  "summary": "Outfits garde l'historique des images d'avatar (les looks) que ton Agent a portées et te laisse passer de l'une à l'autre. Clique sur l'avatar dans le chat Nova pour ouvrir la liste, choisis un look ou reviens à l'avatar Base. Il ne dessine rien tout seul : les nouveaux looks viennent de ton Agent, qui peut les créer avec ComfyUI et les ranger ici.",
+  "whatYouGet": [
+    "Pas de nouvel écran : clique sur l'avatar de ton Agent dans le chat Nova et une fenêtre Outfits s'ouvre.",
+    "Tous les looks enregistrés dans une grille, du plus récent au plus ancien, avec l'avatar Base d'origine toujours à un clic.",
+    "Une petite note dans le chat en direct de l'Agent quand le look change.",
+    "Quatre recettes d'images ComfyUI toutes prêtes, que ton Agent peut utiliser pour créer de nouveaux looks."
+  ],
+  "privacy": "Les looks sont stockés sur ce PC avec le reste de tes données Leaf. Outfits n'envoie rien nulle part ; les nouvelles images sont créées par ton propre ComfyUI.",
+  "requirements": {
+    "nova": {
+      "label": "Nova",
+      "detail": "Le sélecteur Outfits se trouve sur l'avatar dans le chat Nova."
+    },
+    "comfyui": {
+      "label": "ComfyUI (pour créer de nouveaux looks)",
+      "detail": "Facultatif. Utile seulement si tu veux que ton Agent génère de nouvelles images de tenues."
+    }
+  },
+  "setup": {
+    "nova": {
+      "title": "Installe Nova",
+      "body": "Outfits ajoute son sélecteur à l'avatar dans le chat Nova : Nova doit donc être installé."
+    },
+    "open-picker": {
+      "title": "Ouvre le sélecteur",
+      "body": "Dans un chat Nova, survole l'avatar de ton Agent : une icône de t-shirt apparaît. Clique dessus pour ouvrir la fenêtre Outfits."
+    },
+    "choose": {
+      "title": "Choisis un look",
+      "body": "Clique sur une image pour la porter. Clique sur Base pour retrouver l'avatar d'origine. La coche indique ce qui est porté en ce moment."
+    },
+    "make-new": {
+      "title": "Crée de nouveaux looks (facultatif)",
+      "body": "Installe l'extension ComfyUI, puis demande à ton Agent de créer une tenue. Le nouveau look est ajouté à l'historique."
+    }
+  },
+  "useCases": {
+    "daily-change": {
+      "title": "Changer de look pour la journée",
+      "story": "Tu ouvres le chat le matin et tu as envie de changement. Choisis toi-même un look dans l'historique, ou demande à ton Agent d'en choisir un.",
+      "try": "Nova, mets une autre tenue de ton historique pour aujourd'hui."
+    },
+    "new-look": {
+      "title": "Créer un tout nouveau look",
+      "story": "Une soirée pluvieuse en perspective ? Demande à ton Agent de créer une tenue assortie. Elle est faite avec ComfyUI et gardée pour que tu puisses la remettre plus tard.",
+      "try": "Nova, crée une nouvelle tenue pour une soirée pluvieuse et ajoute-la à ta garde-robe."
+    },
+    "back-to-base": {
+      "title": "Revenir à l'original",
+      "story": "Marre des essais ? Ouvre le sélecteur et clique sur Base pour retrouver l'avatar d'origine. Ton historique reste intact."
+    }
+  },
+  "limitations": [
+    "Il ne génère pas d'images tout seul : les nouveaux looks demandent ton Agent et l'extension ComfyUI.",
+    "Chaque Agent a sa propre garde-robe ; tu ne peux pas porter le look d'un autre Agent.",
+    "Les looks marqués NSFW restent cachés dans le sélecteur tant que tu ne cliques pas sur Show NSFW.",
+    "Si tu retires Outfits, le sélecteur disparaît, mais ton historique et l'avatar actuel sont conservés et reviennent si tu le réinstalles."
+  ],
+  "troubleshooting": {
+    "no-picker": {
+      "symptom": "Je ne trouve pas le sélecteur Outfits",
+      "fix": "Ouvre un chat Nova, survole l'avatar de ton Agent et clique dessus. Si rien ne se passe, vérifie que Nova et Outfits sont bien installés et activés."
+    },
+    "missing-look": {
+      "symptom": "Un look que j'ai créé n'est pas dans la grille",
+      "fix": "Les looks marqués NSFW sont cachés par défaut. Un bouton Show NSFW apparaît au-dessus de la grille quand il y en a ; clique dessus pour les afficher."
+    },
+    "no-new-looks": {
+      "symptom": "Mon Agent n'arrive pas à créer de nouveaux looks",
+      "fix": "Les nouvelles images demandent l'extension ComfyUI, installée et fonctionnelle. Installe-la, puis redemande."
+    }
+  }
+}

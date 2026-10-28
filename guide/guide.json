@@ -1,0 +1,105 @@
+{
+  "schema": "leaf.extension-guide/1",
+  "id": "outfits",
+  "kind": "ability",
+  "category": "creative",
+  "tagline": "Browse the looks your Agent has worn and switch their avatar in one click, or go back to the original.",
+  "summary": "Outfits keeps a history of the avatar pictures (called looks) your Agent has worn and lets you switch between them. Click the avatar in the Nova chat to open the list, choose a look, or return to the Base avatar. It does not draw pictures by itself: new looks come from your Agent, who can make them with ComfyUI and save them here.",
+  "whatYouGet": [
+    "No new screen: click your Agent's avatar in the Nova chat and an Outfits window opens.",
+    "Every saved look in one grid, newest first, with the original Base avatar always one click away.",
+    "A short note in the Agent's live chat when the look changes.",
+    "Four ready-made ComfyUI picture recipes your Agent can use to make new looks."
+  ],
+  "runsWhere": "local",
+  "cost": { "kind": "free" },
+  "privacy": "Looks are stored on this PC with the rest of your Leaf data. Outfits sends nothing anywhere; new pictures are made by your own ComfyUI.",
+  "requirements": [
+    {
+      "id": "nova",
+      "kind": "extension",
+      "label": "Nova",
+      "detail": "The Outfits picker lives on the avatar in the Nova chat.",
+      "check": "extension:nova"
+    },
+    {
+      "id": "comfyui",
+      "kind": "extension",
+      "label": "ComfyUI (to make new looks)",
+      "detail": "Optional. Only needed if you want your Agent to generate new outfit pictures.",
+      "check": "extension:provider-comfyui"
+    }
+  ],
+  "setup": [
+    {
+      "id": "nova",
+      "title": "Have Nova installed",
+      "body": "Outfits adds its picker to the avatar in the Nova chat, so Nova needs to be installed.",
+      "check": "extension:nova"
+    },
+    {
+      "id": "open-picker",
+      "title": "Open the picker",
+      "body": "In a Nova chat, hover your Agent's avatar: a T-shirt icon appears. Click it to open the Outfits window.",
+      "action": { "kind": "open-app", "route": "/apps/nova" }
+    },
+    {
+      "id": "choose",
+      "title": "Choose a look",
+      "body": "Click any picture to wear it. Click Base to go back to the original avatar. The tick shows what is worn now."
+    },
+    {
+      "id": "make-new",
+      "title": "Make new looks (optional)",
+      "body": "Install the ComfyUI extension, then ask your Agent to create an outfit. The new look is saved in the history.",
+      "check": "extension:provider-comfyui"
+    }
+  ],
+  "useCases": [
+    {
+      "id": "daily-change",
+      "title": "Change the look for the day",
+      "story": "You open the chat in the morning and fancy something different. Pick a look from the history yourself, or ask your Agent to choose one.",
+      "try": "Nova, put on a different outfit from your history for today."
+    },
+    {
+      "id": "new-look",
+      "title": "Create a brand new look",
+      "story": "Going out on a rainy evening? Ask your Agent to design a matching outfit. It is made with ComfyUI and saved so you can wear it again later.",
+      "try": "Nova, create a new outfit for a rainy evening and save it to your wardrobe."
+    },
+    {
+      "id": "back-to-base",
+      "title": "Return to the original",
+      "story": "Tired of experiments? Open the picker and click Base to get the original avatar back. Your history stays untouched."
+    }
+  ],
+  "limitations": [
+    "It does not generate pictures on its own: new looks need your Agent and the ComfyUI extension.",
+    "Each Agent has their own wardrobe; you cannot wear another Agent's look.",
+    "Looks flagged NSFW stay hidden in the picker until you click Show NSFW.",
+    "Removing Outfits removes the picker, but your history and the current avatar are kept and come back if you reinstall."
+  ],
+  "troubleshooting": [
+    {
+      "id": "no-picker",
+      "symptom": "I cannot find the Outfits picker",
+      "fix": "Open a Nova chat and hover over your Agent's avatar, then click it. If nothing happens, check that Nova and Outfits are both installed and enabled.",
+      "check": "extension:nova"
+    },
+    {
+      "id": "missing-look",
+      "symptom": "A look I made is not in the grid",
+      "fix": "Looks flagged NSFW are hidden by default. A Show NSFW button appears above the grid when there are some; click it to reveal them."
+    },
+    {
+      "id": "no-new-looks",
+      "symptom": "My Agent cannot make new looks",
+      "fix": "New pictures need the ComfyUI extension installed and working. Install it, then ask again.",
+      "check": "extension:provider-comfyui"
+    }
+  ],
+  "agent": {
+    "whenToSuggest": "When the user wants to see, change or save an Agent's avatar outfit, go back to the original avatar, or have the Agent create a new look."
+  }
+}
