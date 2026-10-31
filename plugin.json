@@ -2,7 +2,7 @@
   "id": "outfits",
   "name": "Outfits",
   "version": "0.1.0",
-  "kernelApi": "^0.1.0",
+  "kernelApi": "^0.1.7",
   "description": "Optional outfit history and avatar selection for Nova agents.",
   "icon": "ph-t-shirt",
   "color": "nova",

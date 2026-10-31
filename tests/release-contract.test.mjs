@@ -57,7 +57,7 @@ test("Outfits is an optional versioned backend and frontend extension", () => {
   assert.equal(detectPnpmVersion(), producer.toolchain.pnpm)
   assert.equal(manifest.id, "outfits")
   assert.equal(manifest.version, packageJson.version)
-  assert.equal(manifest.kernelApi, "^0.1.0")
+  assert.equal(manifest.kernelApi, "^0.1.7")
   assert.deepEqual(manifest.permissions, [])
   assert.equal(producer.classification, "optional")
   assert.equal(producer.build.backendProject, "src/Leaf.Plugins.Outfits/Leaf.Plugins.Outfits.csproj")
