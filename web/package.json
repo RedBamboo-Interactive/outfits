@@ -17,6 +17,7 @@
     "dev": "vite build --watch",
     "build:pkg": "vite build",
     "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test \"src/lib/*.test.ts\"",
     "test:release": "node --test ../tests/release-contract.test.mjs"
   },
   "dependencies": {

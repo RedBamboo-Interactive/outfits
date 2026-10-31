@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes } from "react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  useContextTarget,
 } from "@redbamboo/ui"
 import { apiFetch } from "@redbamboo/utility"
+import { outfitEntitySubject, outfitTileEntries } from "./lib/outfit-tile-actions"
 
 interface OutfitEntry {
   id: string
@@ -218,7 +220,11 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
                 </div>
               )}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                <button
+                <OutfitTile
+                  base
+                  active={baseActive}
+                  busy={selecting !== null}
+                  onUse={() => selectOutfit(null)}
                   type="button"
                   onClick={() => selectOutfit(null)}
                   aria-pressed={baseActive}
@@ -237,10 +243,15 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
                   </div>
                   {selecting === "__base__" && <SpinnerOverlay />}
                   {baseActive && <ActiveBadge />}
-                </button>
+                </OutfitTile>
 
                 {filtered.map((outfit) => (
-                  <button
+                  <OutfitTile
+                    base={false}
+                    entity={outfit}
+                    active={outfit.active}
+                    busy={selecting !== null}
+                    onUse={() => selectOutfit(outfit)}
                     type="button"
                     key={outfit.id}
                     onClick={() => selectOutfit(outfit)}
@@ -268,7 +279,7 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
                     )}
                     {selecting === outfit.id && <SpinnerOverlay />}
                     {outfit.active && <ActiveBadge />}
-                  </button>
+                  </OutfitTile>
                 ))}
 
                 {filtered.length === 0 && (
@@ -291,6 +302,26 @@ export function OutfitBrowser({ open, onClose, discussionId, agentId }: Props) {
       </DialogContent>
     </Dialog>
   )
+}
+
+/**
+ * A look's tile: a plain button that registers its Leaf context menu (inert when
+ * the preference is off). History tiles register as `outfit` entities.
+ */
+function OutfitTile({ base, entity, active, busy, onUse, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & {
+  base: boolean
+  entity?: { id: string; name: string | null }
+  active: boolean
+  busy: boolean
+  onUse: () => void
+}) {
+  const ref = useRef<HTMLButtonElement>(null)
+  useContextTarget(
+    ref,
+    () => outfitTileEntries({ base, active, busy, onUse }),
+    entity ? { kind: "entity", subject: outfitEntitySubject(entity) } : {},
+  )
+  return <button ref={ref} {...props} />
 }
 
 function SpinnerOverlay() {
