@@ -55,7 +55,8 @@ internal static class OutfitEndpoints
                 total = all.Count,
                 nsfwCount = all.Count(outfit => OutfitData.Boolean(outfit.Data, "nsfw")),
             });
-        });
+        })
+        .WithSummary("Lists an agent's outfit history, newest first, with the active selection and the base avatar. Query: agentId (id or slug, defaults to nova), limit (1 to 100, default 20), offset.");
 
         group.MapPost("/", async (
             HttpContext ctx,
@@ -81,7 +82,8 @@ internal static class OutfitEndpoints
             var name = OutfitData.String(body, "name") ?? "Outfit";
             var outfit = await entities.CreateAsync("outfit", name, data, ct);
             return Results.Ok(new { success = true, id = outfit.Id.ToString() });
-        });
+        })
+        .WithSummary("Records a generated outfit for an agent without selecting it. JSON body: url, prompt, name, reasoning, nsfw and optional agentId (defaults to nova). Use POST select afterwards to wear it.");
 
         group.MapPost("/select", async (
             HttpContext ctx,
@@ -135,7 +137,8 @@ internal static class OutfitEndpoints
                 ct);
 
             return Results.Ok(new { success = true, url = resolvedUrl });
-        });
+        })
+        .WithSummary("Selects an outfit as the agent's avatar, or resets to the base avatar when outfitId is empty. JSON body: outfitId and optional agentId (defaults to nova). Publishes an avatar change event and posts a note to the agent's live discussion.");
     }
 
     private static async Task<LeafEntity?> ResolveAgentAsync(
